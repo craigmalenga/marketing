@@ -81,7 +81,7 @@ def health_check():
     
     return jsonify({
         'status': 'ok' if db_status == 'healthy' else 'error',
-        'timestamp': datetime.utcnow().isoformat(),
+        'timestamp': datetime.now().isoformat(),
         'database': db_status,
         'version': '1.0'
     })

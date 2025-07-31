@@ -4,6 +4,7 @@ FLG to Meta name mapping model
 
 from app import db
 from datetime import datetime
+from sqlalchemy import func
 
 class FLGMetaMapping(db.Model):
     """FLG to Meta name mapping model for matching marketing sources to campaigns"""
@@ -12,7 +13,7 @@ class FLGMetaMapping(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     flg_name = db.Column(db.String(200), nullable=False, unique=True)
     meta_name = db.Column(db.String(200), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=func.now())
     
     def __repr__(self):
         return f'<FLGMetaMapping {self.flg_name} -> {self.meta_name}>'

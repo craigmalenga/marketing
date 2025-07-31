@@ -4,6 +4,7 @@ Ad Spend model
 
 from app import db
 from datetime import datetime
+from sqlalchemy import func
 
 class AdSpend(db.Model):
     """Ad Spend model for storing campaign and ad level spending data"""
@@ -19,7 +20,7 @@ class AdSpend(db.Model):
     # Foreign key to campaigns table
     campaign_id = db.Column(db.Integer, db.ForeignKey('campaigns.id'))
     
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=func.now())
     
     # Indexes for performance
     __table_args__ = (

@@ -4,6 +4,7 @@ Application model for affordability check data
 
 from app import db
 from datetime import datetime
+from sqlalchemy import func
 
 class Application(db.Model):
     """Application model for storing affordability check data (passed/failed)"""
@@ -23,7 +24,7 @@ class Application(db.Model):
     lead_value = db.Column(db.Float)
     current_status = db.Column(db.String(100))
     affordability_result = db.Column(db.String(20))  # 'passed' or 'failed'
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=func.now())
     
     # Index for performance
     __table_args__ = (

@@ -4,6 +4,7 @@ Product model
 
 from app import db
 from datetime import datetime
+from sqlalchemy import func
 
 class Product(db.Model):
     """Product model for storing product information"""
@@ -12,7 +13,7 @@ class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False, unique=True)
     category = db.Column(db.String(100))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=func.now())
     
     def __repr__(self):
         return f'<Product {self.name}>'

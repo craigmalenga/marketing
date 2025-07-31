@@ -4,6 +4,7 @@ Campaign model
 
 from app import db
 from datetime import datetime
+from sqlalchemy import func
 
 class Campaign(db.Model):
     """Campaign model for storing marketing campaign information"""
@@ -12,8 +13,8 @@ class Campaign(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False, unique=True)
     meta_name = db.Column(db.String(200))  # Meta/Facebook campaign name
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
     
     # Relationships
     ad_spends = db.relationship('AdSpend', backref='campaign', lazy='dynamic')

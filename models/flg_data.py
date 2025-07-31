@@ -4,6 +4,7 @@ FLG Data model
 
 from app import db
 from datetime import datetime
+from sqlalchemy import func
 
 class FLGData(db.Model):
     """FLG Data model for storing lead and sales information"""
@@ -26,7 +27,7 @@ class FLGData(db.Model):
     product_name = db.Column(db.String(200))  # Extracted from description
     campaign_name = db.Column(db.String(200))  # Mapped from marketing source
     
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=func.now())
     
     # Indexes for performance
     __table_args__ = (

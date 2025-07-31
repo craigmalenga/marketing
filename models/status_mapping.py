@@ -4,6 +4,7 @@ Status Mapping model
 
 from app import db
 from datetime import datetime
+from sqlalchemy import func
 
 class StatusMapping(db.Model):
     """Status mapping model for defining 1s and 0s for each status variant"""
@@ -15,8 +16,8 @@ class StatusMapping(db.Model):
     is_application_processed = db.Column(db.Integer, default=0)  # 1 or 0
     is_application_approved = db.Column(db.Integer, default=0)  # 1 or 0
     is_future = db.Column(db.Integer, default=0)  # 1 or 0
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
     
     def __repr__(self):
         return f'<StatusMapping {self.status_name}>'
