@@ -5,7 +5,8 @@ Report generation service
 import pandas as pd
 import logging
 from datetime import datetime
-from sqlalchemy import func, and_, or_
+from sqlalchemy import func, and_, or_, distinct
+from flask import current_app
 from app import db
 from models import (
     Application, FLGData, AdSpend, Product, Campaign,
