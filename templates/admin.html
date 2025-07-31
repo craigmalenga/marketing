@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - Marketing Analytics Platform{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-2xl font-bold text-gray-900 mb-2">Admin Panel</h2>
+        <p class="text-gray-600">Database initialization and management</p>
+    </div>
+
+    <!-- Database Initialization -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Database Initialization</h3>
+        <p class="text-gray-600 mb-4">
+            If this is your first time running the app or if tables are missing, click the button below to initialize the database.
+        </p>
+        <button id="init-db-btn" class="btn-primary">
+            <i class="fas fa-database mr-2"></i>Initialize Database
+        </button>
+        <div id="init-result" class="mt-4 hidden"></div>
+    </div>
+
+    <!-- Database Status -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Database Status</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-gray-50 p-4 rounded">
+                <h4 class="font-medium text-gray-700">Total Records</h4>
+                <p class="text-sm text-gray-600">Applications: <span id="app-count">-</span></p>
+                <p class="text-sm text-gray-600">FLG Data: <span id="flg-count">-</span></p>
+                <p class="text-sm text-gray-600">Ad Spend: <span id="ad-count">-</span></p>
+            </div>
+            <div class="bg-gray-50 p-4 rounded">
+                <h4 class="font-medium text-gray-700">Status Mappings</h4>
+                <p class="text-sm text-gray-600">Total mappings: <span id="status-count">-</span></p>
+            </div>
+            <div class="bg-gray-50 p-4 rounded">
+                <h4 class="font-medium text-gray-700">Products</h4>
+                <p class="text-sm text-gray-600">Total products: <span id="product-count">-</span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+        <div class="space-y-2">
+            <a href="{{ url_for('upload_page') }}" class="btn-secondary">
+                <i class="fas fa-upload mr-2"></i>Upload Data Files
+            </a>
+            <button class="btn-secondary ml-2" onclick="window.open('/api/mappings/status', '_blank')">
+                <i class="fas fa-list mr-2"></i>View Status Mappings (JSON)
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadDatabaseStatus();
+    
+    document.getElementById('init-db-btn').addEventListener('click', initializeDatabase);
+});
+
+function loadDatabaseStatus() {
+    // Load counts
+    fetch('/api/upload/check-status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('app-count').textContent = data.status.applications.total_records.toLocaleString();
+                document.getElementById('flg-count').textContent = data.status.flg_data.total_records.toLocaleString();
+                document.getElementById('ad-count').textContent = data.status.ad_spend.total_records.toLocaleString();
+            }
+        });
+    
+    // Load status mapping count
+    fetch('/api/mappings/status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('status-count').textContent = data.data.length;
+            }
+        });
+    
+    // Load product count
+    fetch('/api/reports/available-filters')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('product-count').textContent = data.filters.products.length;
+            }
+        });
+}
+
+function initializeDatabase() {
+    const btn = document.getElementById('init-db-btn');
+    const resultDiv = document.getElementById('init-result');
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Initializing...';
+    
+    fetch('/api/init-database', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-database mr-2"></i>Initialize Database';
+        
+        resultDiv.classList.remove('hidden');
+        
+        if (data.success) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle mr-2"></i>
+                    ${data.message}
+                    <br>Status mappings created: ${data.status_mappings_created}
+                    <br>Products created: ${data.products_created}
+                </div>
+            `;
+            
+            // Reload status
+            setTimeout(loadDatabaseStatus, 1000);
+        } else {
+            resultDiv.innerHTML = `
+                <div class="alert alert-error">
+                    <i class="fas fa-exclamation-circle mr-2"></i>
+                    Error: ${data.error}
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-database mr-2"></i>Initialize Database';
+        
+        resultDiv.classList.remove('hidden');
+        resultDiv.innerHTML = `
+            <div class="alert alert-error">
+                <i class="fas fa-exclamation-circle mr-2"></i>
+                Error: ${error.message}
+            </div>
+        `;
+    });
+}
+</script>
+{% endblock %}

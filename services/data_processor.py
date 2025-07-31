@@ -213,14 +213,14 @@ class DataProcessor:
     def process_ad_spend_file(self, filepath):
         """Process ad spend Excel file"""
         try:
-            # Read Excel file
-            df = pd.read_excel(filepath)
+            # Read Excel file - the sheet is named "Meta"
+            df = pd.read_excel(filepath, sheet_name='Meta')
             
-            # Find the header row (looking for date-related column)
+            # Find the header row by looking for "Reporting ends"
             header_row = None
-            for idx, row in df.iterrows():
-                row_str = str(row.values)
-                if any(term in row_str.lower() for term in ['date', 'reporting', 'end']):
+            for idx in range(len(df)):
+                row_values = df.iloc[idx].astype(str).tolist()
+                if any('Reporting ends' in str(val) for val in row_values):
                     header_row = idx
                     break
             
@@ -228,30 +228,23 @@ class DataProcessor:
                 # Try first row as header
                 header_row = 0
             
-            # Set correct column names
-            df.columns = df.iloc[header_row]
-            df = df[header_row + 1:].reset_index(drop=True)
+            # Read again with correct header row
+            df = pd.read_excel(filepath, sheet_name='Meta', header=header_row)
             
-            # Identify columns
-            date_col = None
-            campaign_col = None
-            ad_level_col = None
-            spend_col = None
+            # Standardize column names
+            df.columns = df.columns.str.strip()
             
-            for col in df.columns:
-                col_lower = str(col).lower()
-                if 'date' in col_lower:
-                    date_col = col
-                elif 'campaign' in col_lower and 'name' in col_lower:
-                    campaign_col = col
-                elif 'ad' in col_lower and 'level' in col_lower:
-                    ad_level_col = col
-                elif 'spend' in col_lower or 'amount' in col_lower or 'cost' in col_lower:
-                    spend_col = col
+            # Map columns to expected names
+            column_mapping = {
+                'Reporting ends': 'reporting_date',
+                'Meta campaign name': 'campaign_name',
+                'Ad level': 'ad_level',
+                'Spend': 'spend_amount',
+                'New -versus last weel?': 'is_new'
+            }
             
-            if not all([date_col, campaign_col, spend_col]):
-                raise ValueError("Could not identify required columns in ad spend file")
-            
+            # Rename columns
+            df.rename(columns=column_mapping, inplace=True)
             # Track new campaigns
             new_campaigns = set()
             total_spend = 0
@@ -260,17 +253,18 @@ class DataProcessor:
             count = 0
             for _, row in df.iterrows():
                 # Skip empty rows
-                if pd.isna(row.get(campaign_col)):
+                if pd.isna(row.get('campaign_name')) or pd.isna(row.get('spend_amount')):
                     continue
                 
                 # Parse data
-                reporting_date = AdSpend.parse_excel_date(row.get(date_col))
+                reporting_date = AdSpend.parse_excel_date(row.get('reporting_date'))
                 if not reporting_date:
                     continue
                 
-                meta_campaign_name = str(row.get(campaign_col))
-                ad_level = str(row.get(ad_level_col)) if ad_level_col and not pd.isna(row.get(ad_level_col)) else None
-                spend_amount = self._parse_float(row.get(spend_col))
+                meta_campaign_name = str(row.get('campaign_name'))
+                ad_level = str(row.get('ad_level')) if not pd.isna(row.get('ad_level')) else None
+                spend_amount = self._parse_float(row.get('spend_amount'))
+                is_new = str(row.get('is_new')).upper() == 'NEW' if not pd.isna(row.get('is_new')) else False
                 
                 if not spend_amount or spend_amount == 0:
                     continue
@@ -291,6 +285,7 @@ class DataProcessor:
                     meta_campaign_name=meta_campaign_name,
                     ad_level=ad_level,
                     spend_amount=spend_amount,
+                    is_new=is_new,
                     campaign=campaign
                 )
                 

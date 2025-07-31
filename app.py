@@ -63,10 +63,10 @@ def credit_performance():
     """Credit performance report page"""
     return render_template('credit_performance.html')
 
-@app.route('/marketing-campaign')
-def marketing_campaign():
-    """Marketing campaign report page"""
-    return render_template('marketing_campaign.html')
+@app.route('/admin')
+def admin_page():
+    """Admin page for database initialization"""
+    return render_template('admin.html')
 
 @app.route('/api/health')
 def health_check():
@@ -86,40 +86,75 @@ def health_check():
         'version': '1.0'
     })
 
-@app.route('/api/upload-history')
-def upload_history():
-    """Get history of file uploads"""
+@app.route('/api/init-database', methods=['POST'])
+def init_database_endpoint():
+    """Initialize database tables via API endpoint"""
     try:
-        # For now, return mock data - will implement with database later
-        history = [
-            {
-                'id': 1,
-                'filename': 'applications_week_28.xlsx',
-                'type': 'applications',
-                'uploaded_at': '2025-07-24T10:30:00',
-                'status': 'processed',
-                'records': 268
-            },
-            {
-                'id': 2,
-                'filename': 'flg_data_week_28.xlsx',
-                'type': 'flg_data',
-                'uploaded_at': '2025-07-24T10:31:00',
-                'status': 'processed',
-                'records': 1250
-            },
-            {
-                'id': 3,
-                'filename': 'ad_spend_week_28.xlsx',
-                'type': 'ad_spend',
-                'uploaded_at': '2025-07-24T10:32:00',
-                'status': 'processed',
-                'records': 45
-            }
+        # Create all tables
+        db.create_all()
+        
+        # Create default status mappings
+        from models import StatusMapping, Product
+        
+        default_statuses = StatusMapping.get_default_mappings()
+        created_statuses = 0
+        
+        for status_data in default_statuses:
+            status = StatusMapping.query.filter_by(status_name=status_data['status_name']).first()
+            if not status:
+                status = StatusMapping(**status_data)
+                db.session.add(status)
+                created_statuses += 1
+        
+        # Create default products
+        default_products = [
+            {'name': 'Sofa - Aldis', 'category': 'Sofa'},
+            {'name': 'Sofa - Kyle', 'category': 'Sofa'},
+            {'name': 'Sofa - Hamilton', 'category': 'Sofa'},
+            {'name': 'Sofa - Lawson', 'category': 'Sofa'},
+            {'name': 'Sofa - Lucy', 'category': 'Sofa'},
+            {'name': 'Sofa - Roma', 'category': 'Sofa'},
+            {'name': 'Sofa - other', 'category': 'Sofa'},
+            {'name': 'Rattan', 'category': 'Furniture'},
+            {'name': 'Bed', 'category': 'Furniture'},
+            {'name': 'Dining set', 'category': 'Furniture'},
+            {'name': 'Cooker', 'category': 'Appliances'},
+            {'name': 'Fridge freezer', 'category': 'Appliances'},
+            {'name': 'Washer dryer', 'category': 'Appliances'},
+            {'name': 'Dish washer', 'category': 'Appliances'},
+            {'name': 'Microwave', 'category': 'Appliances'},
+            {'name': 'TV', 'category': 'Electronics'},
+            {'name': 'Console', 'category': 'Electronics'},
+            {'name': 'Laptop', 'category': 'Electronics'},
+            {'name': 'Vacuum', 'category': 'Appliances'},
+            {'name': 'Hot tub', 'category': 'Leisure'},
+            {'name': 'BBQ', 'category': 'Outdoor'},
+            {'name': 'Air fryer', 'category': 'Appliances'},
+            {'name': 'Ninja products', 'category': 'Appliances'},
+            {'name': 'Kitchen Bundle', 'category': 'Appliances'},
+            {'name': 'Other', 'category': 'Other'}
         ]
-        return jsonify({'success': True, 'data': history})
+        
+        created_products = 0
+        for product_data in default_products:
+            product = Product.query.filter_by(name=product_data['name']).first()
+            if not product:
+                product = Product(**product_data)
+                db.session.add(product)
+                created_products += 1
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Database initialized successfully',
+            'tables_created': True,
+            'status_mappings_created': created_statuses,
+            'products_created': created_products
+        })
+        
     except Exception as e:
-        logger.error(f"Error fetching upload history: {e}")
+        logger.error(f"Error initializing database: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.errorhandler(404)
