@@ -91,32 +91,6 @@
         </div>
     </div>
 
-    <!-- Status Breakdown -->
-    <div class="bg-white shadow rounded-lg p-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Status Breakdown</h3>
-        <div class="overflow-x-auto">
-            <table class="status-breakdown-table">
-                <thead>
-                    <tr>
-                        <th rowspan="2">Status</th>
-                        <th colspan="4" class="text-center">Category Mapping</th>
-                        <th rowspan="2">Count</th>
-                        <th rowspan="2">Value</th>
-                    </tr>
-                    <tr>
-                        <th>App Received</th>
-                        <th>App Processed</th>
-                        <th>App Approved</th>
-                        <th>Future</th>
-                    </tr>
-                </thead>
-                <tbody id="status-breakdown-tbody">
-                    <!-- Status breakdown will be populated here -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-
     <!-- Performance Charts -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white shadow rounded-lg p-6">
@@ -157,6 +131,36 @@
             </div>
         </div>
     </div>
+
+
+    <!-- Status Breakdown -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Status Breakdown</h3>
+        <div class="overflow-x-auto">
+            <table class="status-breakdown-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2">Status</th>
+                        <th colspan="4" class="text-center">Category Mapping</th>
+                        <th rowspan="2">Count</th>
+                        <th rowspan="2">Value</th>
+                    </tr>
+                    <tr>
+                        <th>App Received</th>
+                        <th>App Processed</th>
+                        <th>App Approved</th>
+                        <th>Future</th>
+                    </tr>
+                </thead>
+                <tbody id="status-breakdown-tbody">
+                    <!-- Status breakdown will be populated here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+
+
 </div>
 {% endblock %}
 
