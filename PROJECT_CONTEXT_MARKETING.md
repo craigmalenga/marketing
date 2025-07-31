@@ -1,6 +1,6 @@
 # PROJECT CONTEXT: Marketing Analytics Platform
-# Last Updated: 31 July 2025 at 1530
-# Version: 1.3
+# Last Updated: 31 July 2025 at 1700
+# Version: 1.4
 
 ## 🔄 DOCUMENT MAINTENANCE INSTRUCTIONS - READ FIRST
 
@@ -21,6 +21,28 @@
 ```
 
 ## UPDATE HISTORY
+
+### Data Structure Understanding and Upload Fixes (31 July 2025 17:00)
+**Problem**: Upload routes returning 404 errors, circular import issues, incorrect understanding of data structure
+**Solution**: Fixed circular imports, corrected data processing logic, fixed URL routing
+**Files Modified**: 
+- app.py (removed URL prefixes from blueprint registration)
+- services/__init__.py (removed module-level imports)
+- services/data_processor.py (complete rewrite for correct data structure)
+- routes/upload.py (complete implementation with proper error handling)
+- routes/__init__.py (simplified imports)
+- templates/404.html (NEW - error page)
+**Technical Details**: 
+- Affordability CSV files only provide Lead IDs for pass/fail tracking
+- all_leads_all_time.csv is the main data source with all details
+- Fixed blueprint registration to avoid double /api/upload prefixes
+- DataProcessor now maintains state for Lead ID tracking
+- Historic ad spend files handled with flexible column detection
+- Lazy imports in services to avoid circular dependencies
+**Testing Notes**: 
+- Upload files in order: mappings → affordability CSVs → all_leads → ad spend
+- Check browser console (F12) for detailed error messages
+- Verify routes work at /api/upload/applications (not /api/upload/api/upload/applications)
 
 ### CSV Support and Multi-File Upload Implementation (31 July 2025 15:30)
 **Problem**: System expected Excel files with specific sheet names, but actual data comes as CSV files with different column names. Ad spend wasn't processing. No feedback on what was being processed.
@@ -124,8 +146,8 @@ This is a web-based marketing analytics platform that replaces an Excel-based re
 
 ### Key Business Process
 1. Weekly data uploads:
-   - Application passed/failed data (CSV or Excel)
-   - FLG full data (CSV or Excel)
+   - Application passed/failed data (CSV) - Contains ONLY Lead IDs
+   - FLG full data (CSV) - Main data source with all lead details
    - Ad spend data (Excel with flexible column detection)
 2. FLG to Meta name mapping (from Word document)
 3. Status variant mapping (1s and 0s for application stages)
@@ -143,27 +165,18 @@ This is a web-based marketing analytics platform that replaces an Excel-based re
 - Deployment: Railway with PostgreSQL
 - CSS Framework: Tailwind CSS via CDN
 
-## CURRENT DATA FILE FORMATS
+## CRITICAL DATA STRUCTURE UNDERSTANDING
 
-### Applications Data (CSV)
-- **Filenames**: `affordability_check_passed__craig_.csv`, `affordability_check_failed__craig_.csv`
-- **Columns**: 
-  - Activity date & time
-  - Lead ID
-  - Date & time received
-  - Status
-  - Marketing source
-  - Capital amount
-  - Repayment frequency
-  - Total interest
-  - Regular repayments
-  - Total amount to pay
-  - Product details
+### 1. **Affordability Check Files** (CSV) - LEAD IDS ONLY
+- `affordability_check_passed__craig_.csv` - Contains ONLY Lead IDs that passed
+- `affordability_check_failed__craig_.csv` - Contains ONLY Lead IDs that failed
+- **PURPOSE**: Just tells us which applications passed or failed affordability checks
+- **DO NOT** try to extract other data from these files
 
-### FLG Data (CSV)
-- **Filename**: `all_leads_all_time__craig_.csv`
+### 2. **All Leads File** (CSV) - MAIN DATA SOURCE
+- `all_leads_all_time__craig_.csv` - Contains ALL lead information
 - **Columns**:
-  - Lead ID
+  - Lead ID (links to affordability results)
   - Date & time received
   - Status
   - Marketing source
@@ -174,14 +187,14 @@ This is a web-based marketing analytics platform that replaces an Excel-based re
   - Total amount to pay
   - Product details
 
-### Ad Spend Data (Excel)
-- **Filename**: Various (e.g., `weeklyadditionalspendtoaddtodataalreadyinsystem.xlsx`)
-- **Detection**: Smart column detection looking for date, campaign, and spend columns
-- **Flexible**: Handles various column naming conventions
+### 3. **Historic Ad Spend Files** (Excel)
+- Multiple files with varying formats and date ranges
+- Flexible column detection for: date, campaign, ad level, spend
+- May have dates in filename, sheet name, or column
 
-### FLG to Meta Mapping (Word)
-- **Filename**: `Smarterbuys Tracking Links - KB (1).docx`
-- **Format**: Table with FLG campaign names and Meta campaign names
+### 4. **FLG to Meta Mapping** (Word)
+- Table format with FLG campaign names → Meta campaign names
+- May have '?' prefix on some names (should be stripped)
 
 ## SYSTEM ARCHITECTURE
 
@@ -253,13 +266,13 @@ marketing-analytics-platform/
 │   └── flg_meta_mapping.py
 │
 ├── routes/                    # API endpoints
-│   ├── __init__.py
+│   ├── __init__.py           # Simple exports, no complex imports
 │   ├── upload.py             # File upload handling
 │   ├── reports.py            # Report generation
 │   └── mappings.py           # Status/name mappings
 │
 ├── services/                  # Business logic
-│   ├── __init__.py
+│   ├── __init__.py           # NO module-level imports!
 │   ├── data_processor.py     # Excel/CSV file processing
 │   ├── report_generator.py   # Report calculations
 │   └── mapping_service.py    # Handle mappings
@@ -276,13 +289,18 @@ marketing-analytics-platform/
 ├── templates/                 # HTML templates
 │   ├── base.html
 │   ├── index.html
-│   ├── upload.html          # UPDATED: Multi-file upload
+│   ├── upload.html          # Multi-file upload interface
 │   ├── credit_performance.html
 │   ├── marketing_campaign.html
-│   └── admin.html           # Admin page for DB init
+│   ├── admin.html           # Admin page for DB init
+│   └── 404.html             # Error page
 │
 └── data/                      # Local data storage
     ├── uploads/              # Temporary file uploads
+    │   ├── applications/
+    │   ├── flg/
+    │   ├── ad_spend/
+    │   ├── mappings/
     │   └── .gitkeep
     └── exports/              # Generated reports
         └── .gitkeep
@@ -296,14 +314,14 @@ marketing-analytics-platform/
 - Smart file type detection
 - Real-time upload progress
 - Detailed processing feedback
-- Support for actual data formats
+- Correct data structure handling
 
 ### 2. Data Processing Pipeline ✓
-- Parse both CSV and Excel files
-- Column mapping for different formats
-- Handle various date formats
+- Affordability CSVs → Extract Lead IDs only
+- All Leads CSV → Main data with affordability status applied
+- Historic ad spend → Flexible column detection
 - Row-level error handling
-- Detailed logging for debugging
+- State management for Lead ID tracking
 
 ### 3. Credit Performance Report ✓
 Replicate Excel metrics:
@@ -357,15 +375,28 @@ Replicate Excel metrics:
 2. Add PostgreSQL database
 3. Visit `https://your-app.railway.app/admin`
 4. Click "Initialize Database" button
-5. Upload your data files
+5. Upload your data files in correct order
 
-### File Upload Tips
-1. **Use Multi-File Upload**: Drag and drop all your weekly files at once
-2. **File Naming**: System detects file types from names (e.g., "passed", "failed", "leads", "spend")
-3. **Check Logs**: Console shows detailed processing information
-4. **Monitor Progress**: Each file shows real-time upload and processing status
+### Correct Data Upload Order
+1. **Initialize Database** (/admin)
+2. **Upload FLG to Meta Mappings** (Word doc)
+3. **Upload Affordability CSVs** (both passed and failed)
+4. **Upload All Leads CSV** (main data file)
+5. **Upload Historic Ad Spend** (Excel files)
 
 ## CRITICAL IMPLEMENTATION NOTES
+
+### Circular Import Prevention
+- `services/__init__.py` has NO module-level imports
+- DataProcessor imported lazily in routes
+- Blueprints registered WITHOUT URL prefix (routes already include /api/)
+- Model imports happen within app context
+
+### Data Processing Logic
+1. **Affordability files** are processed first to build sets of passed/failed Lead IDs
+2. **All Leads file** creates both FLG records AND Application records
+3. **Application records** only created for Lead IDs found in affordability sets
+4. **Marketing sources** mapped to campaigns using FLG to Meta mappings
 
 ### Excel Formula Translations
 The Excel workbook uses complex formulas that have been translated:
@@ -374,15 +405,7 @@ The Excel workbook uses complex formulas that have been translated:
 - Cell references → Database relationships
 - Conditional formatting → Frontend styling logic
 
-### Data Processing Considerations
-- CSV and Excel files both supported
-- Column name mapping handles variations
-- Date formats automatically detected
-- Missing data handled gracefully
-- Row-level error handling prevents one bad row from stopping entire upload
-- All uploads logged with detailed results
-
-### Fixed Issues
+### Fixed Issues (Chronological)
 1. **numpy/pandas compatibility** - Fixed with specific versions
 2. **SQLAlchemy datetime** - Using func.now() instead of datetime.utcnow
 3. **Import errors** - Removed circular imports
@@ -392,6 +415,9 @@ The Excel workbook uses complex formulas that have been translated:
 7. **CSV support** - Full support for CSV files with column mapping
 8. **Ad spend detection** - Smart column detection for various formats
 9. **Multi-file upload** - Drag-and-drop interface for batch uploads
+10. **URL routing** - Removed duplicate prefixes in blueprint registration
+11. **Circular imports** - Lazy loading in services and routes
+12. **Data structure** - Correct understanding of affordability vs all_leads
 
 ### Performance Optimization
 - Database indexes on frequently queried columns
@@ -399,6 +425,7 @@ The Excel workbook uses complex formulas that have been translated:
 - Connection pooling via SQLAlchemy
 - Efficient file parsing with pandas
 - Row-level error handling for resilience
+- State management in DataProcessor instance
 
 ### Security Considerations
 - File upload validation
@@ -406,10 +433,11 @@ The Excel workbook uses complex formulas that have been translated:
 - SQL injection prevention via SQLAlchemy
 - XSS prevention in templates
 - CSRF protection via Flask
+- 50MB file size limit
 
 ## API ENDPOINTS
 
-### Upload Endpoints
+### Upload Endpoints (Working)
 - `POST /api/upload/applications` - Upload applications data (CSV or Excel)
 - `POST /api/upload/flg-data` - Upload FLG data (CSV or Excel)
 - `POST /api/upload/ad-spend` - Upload ad spend data (Excel)
@@ -443,65 +471,89 @@ The Excel workbook uses complex formulas that have been translated:
 1. **Deploy to Railway** ✓
 2. **Add PostgreSQL database** ✓
 3. **Visit /admin and initialize database** ✓
-4. **Upload your CSV/Excel files using multi-file upload**
-5. **Check console logs if ad spend shows 0 records**
-6. **Verify reports show correct data**
+4. **Upload files in correct order**:
+   - FLG to Meta mappings first
+   - Affordability CSVs (both)
+   - All leads CSV
+   - Historic ad spend files
+5. **Verify reports show correct data**
 
 ### For Ongoing Use:
-1. **Weekly uploads** - Drag and drop all weekly files at once
-2. **Monitor logs** - Check browser console for processing details
-3. **Check mappings** - Ensure FLG to Meta mappings are up to date
-4. **Update statuses** - Add new status variants as they appear
+1. **Weekly uploads** - Follow the same order as initial setup
+2. **Monitor browser console** - F12 for debugging
+3. **Check unmapped sources** - Update FLG to Meta mappings as needed
+4. **Update status mappings** - Add new statuses as they appear
 
 ### Future Enhancements to Consider:
-
-1. **Historical Data Import**: Bulk import of past data
-2. **Automated Uploads**: Schedule automatic file imports
+1. **Automated Upload Order** - System could detect and queue files
+2. **Data Validation Dashboard** - Show data quality metrics
 3. **Enhanced Analytics**:
    - Trend analysis over time
    - Year-over-year comparisons
    - Predictive analytics
-4. **Email Reports**: Automated weekly report distribution
-5. **API Access**: REST API for external systems
-6. **Data Validation Dashboard**: Show data quality metrics
-7. **Audit Trail**: Complete history of all changes
-8. **Performance Dashboards**: Real-time KPI monitoring
+4. **Email Reports** - Automated weekly report distribution
+5. **API Access** - REST API for external systems
+6. **Bulk Historic Import** - Process years of historic data
+7. **Audit Trail** - Complete history of all changes
+8. **Performance Dashboards** - Real-time KPI monitoring
 
 ## TROUBLESHOOTING GUIDE
 
 ### Common Issues and Solutions
 
-1. **"No tables in database"**
-   - Visit /admin and click Initialize Database
-   - Or use DBeaver with Railway PostgreSQL credentials
+1. **"Not found" errors on upload**
+   - Check browser console for 404 errors
+   - Verify URL is `/api/upload/applications` not `/api/upload/api/upload/applications`
+   - Restart Flask app completely
+   - Check `services/__init__.py` has no imports
 
-2. **"CSV file not processing"**
-   - Check column names match expected format
-   - Use multi-file upload for better file type detection
-   - Check browser console for detailed error messages
+2. **"Upload failed" errors**
+   - Check browser console (F12) for detailed error
+   - Verify file format matches expected structure
+   - Ensure upload folders exist in data/uploads/
+   - Check file size is under 50MB
 
-3. **"Ad spend showing 0 records"**
-   - Check console logs for column names found
-   - Ensure Excel has date, campaign, and spend columns
-   - Try different sheets in the Excel file
+3. **"No Lead ID column found"**
+   - Ensure CSV has exact column name "Lead ID"
+   - Check for hidden characters or spaces
+   - Verify file encoding is UTF-8
 
-4. **"Charts expanding infinitely"**
-   - Deploy the latest code with chart fixes
-   - Clear browser cache
+4. **Ad spend showing 0 records**
+   - Check console logs for "Found columns:" messages
+   - Ensure Excel has recognizable date/campaign/spend columns
+   - Try different sheets in the file
+   - Check for merged cells or complex formatting
 
-5. **"All values show zero"**
-   - Upload data files first
-   - Check database initialization completed
-   - Verify date filters aren't excluding all data
+5. **Data not linking correctly**
+   - Upload files in correct order
+   - Ensure Lead IDs match between files
+   - Check FLG to Meta mappings are loaded
+   - Verify affordability files uploaded before all_leads
+
+### Debugging Commands
+```bash
+# Check Flask routes
+flask routes
+
+# View detailed logs
+export FLASK_DEBUG=1
+python app.py
+
+# Database queries
+flask shell
+>>> from models import Application, FLGData
+>>> Application.query.count()
+>>> FLGData.query.count()
+```
 
 ### Railway Deployment Checklist
-- [ ] PostgreSQL database added
-- [ ] Environment variables set (SECRET_KEY, FLASK_ENV)
-- [ ] Start command is `gunicorn app:app --bind 0.0.0.0:$PORT`
-- [ ] Database initialized via /admin
-- [ ] Test multi-file upload works
-- [ ] Check console logs for processing details
-- [ ] Reports display data correctly
+- [x] PostgreSQL database added
+- [x] Environment variables set (SECRET_KEY, FLASK_ENV)
+- [x] Start command is `gunicorn app:app --bind 0.0.0.0:$PORT`
+- [x] Database initialized via /admin
+- [x] Upload folders created automatically
+- [ ] Test file uploads in correct order
+- [ ] Verify reports display data correctly
 
 ## CODE GENERATION INSTRUCTIONS
 
@@ -521,3 +573,4 @@ The Excel workbook uses complex formulas that have been translated:
 3. **USE ARTIFACTS SYSTEM** - Code goes in the right panel, not in chat responses
 4. **NO SNIPPETS** - Even for single-line changes, provide the entire file
 5. **PRESERVE EVERYTHING** - Every comment, every blank line, every import
+6. **AVOID CIRCULAR IMPORTS** - Use lazy imports in functions when needed

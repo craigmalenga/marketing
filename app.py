@@ -62,6 +62,11 @@ def index():
     """Main dashboard page"""
     return render_template('index.html')
 
+@app.route('/upload')
+def upload_page():
+    """File upload page"""
+    return render_template('upload.html')
+
 @app.route('/credit-performance')
 def credit_performance():
     """Credit performance report page"""
