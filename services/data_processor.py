@@ -1,5 +1,5 @@
 """
-Data processing service for handling file uploads - Enhanced version
+Data processing service for handling file uploads - Enhanced version with better date parsing
 services/data_processor.py
 """
 
@@ -15,6 +15,7 @@ from models import (
 from services.product_extractor import ProductExtractor
 import os
 import numpy as np
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -454,7 +455,7 @@ class DataProcessor:
             raise
     
     def process_ad_spend_file(self, filepath):
-        """Fixed version of process_ad_spend_file that handles various Excel formats"""
+        """Fixed version of process_ad_spend_file that handles various Excel formats and date parsing"""
         try:
             filename_lower = os.path.basename(filepath).lower()
             is_historic = 'historic' in filename_lower
@@ -469,6 +470,9 @@ class DataProcessor:
             
             # Track all ad spend records to insert
             ad_spend_records = []
+            
+            # Track unique dates found
+            unique_dates = set()
             
             for sheet_name in xls.sheet_names:
                 try:
@@ -564,9 +568,10 @@ class DataProcessor:
                             if not campaign_name or campaign_name == 'nan':
                                 continue
                             
-                            # Parse date
+                            # Parse date - ENHANCED PARSING
+                            date_value = None
                             if date_col and pd.notna(row[date_col]):
-                                date_value = self._parse_date_safe(row[date_col])
+                                date_value = self._parse_date_enhanced(row[date_col], sheet_name, filename_lower)
                             else:
                                 # Default to end of last month for historic data
                                 if is_historic:
@@ -579,6 +584,9 @@ class DataProcessor:
                             if not date_value:
                                 logger.warning(f"Could not parse date for row {idx}")
                                 continue
+                            
+                            # Track unique dates
+                            unique_dates.add(date_value)
                             
                             # Parse spend amount
                             spend_raw = row[spend_col]
@@ -649,6 +657,10 @@ class DataProcessor:
                     logger.error(f"Error processing sheet '{sheet_name}': {e}", exc_info=True)
                     continue
             
+            # Log unique dates found
+            if unique_dates:
+                logger.info(f"Unique dates found in file: {sorted(unique_dates)}")
+            
             # Now bulk insert all ad spend records
             if ad_spend_records:
                 logger.info(f"Bulk inserting {len(ad_spend_records)} ad spend records")
@@ -687,7 +699,8 @@ class DataProcessor:
                 'new_campaigns': list(new_campaigns),
                 'total_spend': total_spend,
                 'file_type': f'Excel - {"Historic" if is_historic else "Recent"}',
-                'sheets_processed': len(all_records)
+                'sheets_processed': len(all_records),
+                'unique_dates': len(unique_dates)
             }
             
         except Exception as e:
@@ -748,6 +761,106 @@ class DataProcessor:
                 except:
                     continue
         
+        return None
+    
+    def _parse_date_enhanced(self, value, sheet_name=None, filename=None):
+        """Enhanced date parsing that handles text dates like 'yyyy-mm-dd' strings"""
+        if pd.isna(value) or value is None:
+            return None
+        
+        # If it's already a date object, return it
+        if hasattr(value, 'date'):
+            return value.date()
+        if hasattr(value, 'year') and hasattr(value, 'month') and hasattr(value, 'day'):
+            return value
+        
+        # Convert to string for consistent handling
+        value_str = str(value).strip()
+        
+        # Log what we're trying to parse
+        logger.debug(f"Parsing date value: '{value_str}' (type: {type(value)})")
+        
+        # If it's a number (Excel serial date)
+        try:
+            if isinstance(value, (int, float)) or value_str.replace('.', '').isdigit():
+                excel_base_date = datetime(1899, 12, 30)
+                dt = excel_base_date + timedelta(days=float(value))
+                return dt.date()
+        except:
+            pass
+        
+        # Try various string date formats
+        date_formats = [
+            # ISO formats
+            '%Y-%m-%d',           # 2025-07-31
+            '%Y/%m/%d',           # 2025/07/31
+            '%Y.%m.%d',           # 2025.07.31
+            
+            # European formats
+            '%d/%m/%Y',           # 31/07/2025
+            '%d-%m-%Y',           # 31-07-2025
+            '%d.%m.%Y',           # 31.07.2025
+            '%d/%m/%y',           # 31/07/25
+            '%d-%m-%y',           # 31-07-25
+            
+            # US formats
+            '%m/%d/%Y',           # 07/31/2025
+            '%m-%d-%Y',           # 07-31-2025
+            '%m/%d/%y',           # 07/31/25
+            '%m-%d-%y',           # 07-31-25
+            
+            # With time
+            '%Y-%m-%d %H:%M:%S',  # 2025-07-31 00:00:00
+            '%Y/%m/%d %H:%M:%S',  # 2025/07/31 00:00:00
+            '%d/%m/%Y %H:%M:%S',  # 31/07/2025 00:00:00
+            '%d/%m/%Y %H:%M',     # 31/07/2025 00:00
+            '%m/%d/%Y %H:%M:%S',  # 07/31/2025 00:00:00
+            
+            # Month names
+            '%d %B %Y',           # 31 July 2025
+            '%d %b %Y',           # 31 Jul 2025
+            '%B %d, %Y',          # July 31, 2025
+            '%b %d, %Y',          # Jul 31, 2025
+            '%d-%b-%Y',           # 31-Jul-2025
+            '%d-%B-%Y',           # 31-July-2025
+            
+            # Week ending formats
+            '%d/%m/%Y W/E',       # 31/07/2025 W/E
+            'W/E %d/%m/%Y',       # W/E 31/07/2025
+            '%d-%m-%Y W/E',       # 31-07-2025 W/E
+            'W/E %d-%m-%Y',       # W/E 31-07-2025
+        ]
+        
+        # Remove common suffixes/prefixes
+        cleaned_value = value_str
+        for suffix in ['W/E', 'w/e', 'WE', 'we', 'Week Ending', 'week ending']:
+            cleaned_value = cleaned_value.replace(suffix, '').strip()
+        
+        for fmt in date_formats:
+            try:
+                dt = datetime.strptime(cleaned_value, fmt)
+                logger.debug(f"Successfully parsed '{value_str}' as {dt.date()} using format '{fmt}'")
+                return dt.date()
+            except:
+                continue
+        
+        # Try pandas to_datetime as last resort
+        try:
+            dt = pd.to_datetime(value_str, dayfirst=True)
+            if pd.notna(dt):
+                logger.debug(f"Pandas parsed '{value_str}' as {dt.date()}")
+                return dt.date()
+        except:
+            pass
+        
+        # If all else fails, try to extract from context
+        if sheet_name or filename:
+            context_date = self._extract_date_from_context(sheet_name, filename)
+            if context_date:
+                logger.warning(f"Could not parse '{value_str}', using context date: {context_date}")
+                return context_date
+        
+        logger.warning(f"Failed to parse date: '{value_str}'")
         return None
     
     def process_mapping_file(self, filepath):
@@ -923,46 +1036,5 @@ class DataProcessor:
         return None
     
     def _parse_date_safe(self, value):
-        """Safely parse date for ad spend"""
-        if pd.isna(value) or value is None:
-            return None
-            
-        # If it's a number (Excel serial date)
-        if isinstance(value, (int, float)):
-            excel_base_date = datetime(1899, 12, 30)
-            dt = excel_base_date + timedelta(days=value)
-            return dt.date()
-        
-        # If it's already a date/datetime
-        if hasattr(value, 'date'):
-            return value.date()
-        if hasattr(value, 'year') and hasattr(value, 'month'):
-            return value
-            
-        # If it's a string, try multiple formats
-        if isinstance(value, str):
-            # Clean the string
-            value = value.strip()
-            
-            formats = [
-                '%Y-%m-%d',
-                '%d/%m/%Y',
-                '%m/%d/%Y',
-                '%d-%m-%Y',
-                '%Y/%m/%d',
-                '%d.%m.%Y',
-                '%Y.%m.%d',
-                '%d %B %Y',  # 01 January 2025
-                '%B %d, %Y',  # January 01, 2025
-                '%d %b %Y',   # 01 Jan 2025
-                '%b %d, %Y'   # Jan 01, 2025
-            ]
-            
-            for fmt in formats:
-                try:
-                    dt = datetime.strptime(value, fmt)
-                    return dt.date()
-                except:
-                    continue
-        
-        return None
+        """Safely parse date for ad spend - delegates to enhanced parser"""
+        return self._parse_date_enhanced(value)
