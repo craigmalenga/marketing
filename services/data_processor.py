@@ -6,6 +6,7 @@ services/data_processor.py
 import pandas as pd
 import logging
 from datetime import datetime, timedelta
+from sqlalchemy import func
 from app import db
 from models import (
     Application, FLGData, AdSpend, Product, Campaign,
