@@ -1,5 +1,6 @@
 """
-Data processing service for handling file uploads - Corrected for actual data structure
+Data processing service for handling file uploads - Enhanced version
+services/data_processor.py
 """
 
 import pandas as pd
@@ -10,6 +11,7 @@ from models import (
     Application, FLGData, AdSpend, Product, Campaign,
     StatusMapping, FLGMetaMapping
 )
+from services.product_extractor import ProductExtractor
 import os
 import numpy as np
 
@@ -22,6 +24,28 @@ class DataProcessor:
         # Track Lead IDs that passed/failed affordability checks
         self.passed_lead_ids = set()
         self.failed_lead_ids = set()
+        # Track processing state
+        self.processing_state = {
+            'affordability_loaded': False,
+            'flg_loaded': False,
+            'mappings_loaded': False
+        }
+    
+    def validate_processing_order(self):
+        """Validate that files are being processed in correct order"""
+        warnings = []
+        
+        if not self.processing_state['mappings_loaded']:
+            # Check if any mappings exist in database
+            mapping_count = FLGMetaMapping.query.count()
+            if mapping_count == 0:
+                warnings.append("No FLG to Meta mappings loaded. Upload mapping file first for best results.")
+        
+        if not self.processing_state['affordability_loaded']:
+            if not self.passed_lead_ids and not self.failed_lead_ids:
+                warnings.append("No affordability data loaded. Applications will not be created.")
+        
+        return warnings
     
     def process_applications_file(self, filepath):
         """Process affordability check files - Extract only Lead IDs"""
@@ -34,16 +58,31 @@ class DataProcessor:
                 df = pd.read_csv(filepath)
                 
                 # Check if Lead ID column exists
-                if 'Lead ID' not in df.columns:
-                    raise ValueError("Lead ID column not found in CSV file")
+                lead_id_column = None
+                for col in df.columns:
+                    if 'lead' in col.lower() and 'id' in col.lower():
+                        lead_id_column = col
+                        break
+                
+                if not lead_id_column:
+                    raise ValueError("Lead ID column not found in CSV file. Expected column containing 'Lead' and 'ID'")
                 
                 # Extract Lead IDs
-                lead_ids = df['Lead ID'].dropna().unique()
+                lead_ids = df[lead_id_column].dropna().unique()
                 count = len(lead_ids)
+                
+                # Normalize Lead IDs to strings
+                normalized_ids = set()
+                for lid in lead_ids:
+                    if isinstance(lid, (int, float)):
+                        normalized_ids.add(str(int(lid)))
+                    else:
+                        normalized_ids.add(str(lid).strip())
                 
                 # Determine if passed or failed
                 if 'passed' in filename_lower:
-                    self.passed_lead_ids.update(str(int(lid)) if isinstance(lid, (int, float)) else str(lid) for lid in lead_ids)
+                    self.passed_lead_ids.update(normalized_ids)
+                    self.processing_state['affordability_loaded'] = True
                     logger.info(f"Loaded {count} passed Lead IDs")
                     return {
                         'records_processed': count,
@@ -52,7 +91,8 @@ class DataProcessor:
                         'file_type': 'CSV - Passed Lead IDs'
                     }
                 elif 'failed' in filename_lower:
-                    self.failed_lead_ids.update(str(int(lid)) if isinstance(lid, (int, float)) else str(lid) for lid in lead_ids)
+                    self.failed_lead_ids.update(normalized_ids)
+                    self.processing_state['affordability_loaded'] = True
                     logger.info(f"Loaded {count} failed Lead IDs")
                     return {
                         'records_processed': count,
@@ -67,7 +107,7 @@ class DataProcessor:
                         'passed_count': 0,
                         'failed_count': 0,
                         'file_type': 'CSV - Unknown',
-                        'error': 'Could not determine if passed or failed from filename'
+                        'error': 'Could not determine if passed or failed from filename. File should contain "passed" or "failed" in name.'
                     }
             
             else:
@@ -92,16 +132,30 @@ class DataProcessor:
                 df_passed = pd.read_excel(xls, 'Affordability data - passed')
                 if 'Lead ID' in df_passed.columns:
                     lead_ids = df_passed['Lead ID'].dropna().unique()
-                    self.passed_lead_ids.update(str(int(lid)) if isinstance(lid, (int, float)) else str(lid) for lid in lead_ids)
-                    passed_count = len(lead_ids)
+                    normalized_ids = set()
+                    for lid in lead_ids:
+                        if isinstance(lid, (int, float)):
+                            normalized_ids.add(str(int(lid)))
+                        else:
+                            normalized_ids.add(str(lid).strip())
+                    self.passed_lead_ids.update(normalized_ids)
+                    passed_count = len(normalized_ids)
             
             # Process failed sheet
             if 'Affordability data - failed' in xls.sheet_names:
                 df_failed = pd.read_excel(xls, 'Affordability data - failed')
                 if 'Lead ID' in df_failed.columns:
                     lead_ids = df_failed['Lead ID'].dropna().unique()
-                    self.failed_lead_ids.update(str(int(lid)) if isinstance(lid, (int, float)) else str(lid) for lid in lead_ids)
-                    failed_count = len(lead_ids)
+                    normalized_ids = set()
+                    for lid in lead_ids:
+                        if isinstance(lid, (int, float)):
+                            normalized_ids.add(str(int(lid)))
+                        else:
+                            normalized_ids.add(str(lid).strip())
+                    self.failed_lead_ids.update(normalized_ids)
+                    failed_count = len(normalized_ids)
+            
+            self.processing_state['affordability_loaded'] = True
             
             return {
                 'records_processed': passed_count + failed_count,
@@ -117,40 +171,42 @@ class DataProcessor:
     def process_flg_data_file(self, filepath):
         """Process FLG data (all_leads_all_time) - Main data source"""
         try:
+            # Check processing order
+            warnings = self.validate_processing_order()
+            
             file_ext = os.path.splitext(filepath)[1].lower()
             
             if file_ext == '.csv':
                 # Read CSV file
                 df = pd.read_csv(filepath)
                 
-                # Expected columns
-                expected_columns = [
-                    'Lead ID', 'Date & time received', 'Status', 'Marketing source',
-                    'Capital amount', 'Repayment frequency', 'Total interest',
-                    'Regular repayments', 'Total amount to pay', 'Product details'
-                ]
+                # Map columns flexibly
+                column_mapping = self._map_csv_columns(df.columns)
                 
-                # Check if all expected columns exist
-                missing_columns = [col for col in expected_columns if col not in df.columns]
-                if missing_columns:
-                    logger.warning(f"Missing columns: {missing_columns}")
+                if not column_mapping['lead_id']:
+                    raise ValueError("Lead ID column not found in CSV file")
                 
                 # Process data
                 new_products = set()
                 unmapped_sources = set()
                 count = 0
                 applications_created = 0
+                products_extracted = 0
                 
                 for _, row in df.iterrows():
                     try:
                         # Get Lead ID
-                        lead_id_raw = row.get('Lead ID')
+                        lead_id_raw = row.get(column_mapping['lead_id'])
                         if pd.isna(lead_id_raw):
                             continue
                         
-                        lead_id = str(int(lead_id_raw)) if isinstance(lead_id_raw, (int, float)) else str(lead_id_raw)
+                        # Normalize Lead ID
+                        if isinstance(lead_id_raw, (int, float)):
+                            lead_id = str(int(lead_id_raw))
+                        else:
+                            lead_id = str(lead_id_raw).strip()
                         
-                        # Create FLG record
+                        # Create/Update FLG record
                         existing_flg = FLGData.query.filter_by(reference=lead_id).first()
                         if existing_flg:
                             flg = existing_flg
@@ -159,28 +215,51 @@ class DataProcessor:
                         
                         # Set FLG fields
                         flg.reference = lead_id
-                        flg.received_datetime = self._parse_datetime_safe(row.get('Date & time received'))
-                        flg.status = str(row.get('Status')) if pd.notna(row.get('Status')) else None
-                        flg.marketing_source = str(row.get('Marketing source')) if pd.notna(row.get('Marketing source')) else None
-                        flg.data5_value = self._parse_float(row.get('Capital amount'))
-                        flg.data6_payment_type = str(row.get('Repayment frequency')) if pd.notna(row.get('Repayment frequency')) else None
-                        flg.data7_value = self._parse_float(row.get('Total interest'))
-                        flg.data8_value = self._parse_float(row.get('Regular repayments'))
-                        flg.data10_value = self._parse_float(row.get('Total amount to pay'))
-                        flg.data29_product_description = str(row.get('Product details')) if pd.notna(row.get('Product details')) else None
+                        
+                        if column_mapping['datetime']:
+                            flg.received_datetime = self._parse_datetime_safe(row.get(column_mapping['datetime']))
+                        
+                        if column_mapping['status']:
+                            flg.status = str(row.get(column_mapping['status'])) if pd.notna(row.get(column_mapping['status'])) else None
+                        
+                        if column_mapping['marketing_source']:
+                            flg.marketing_source = str(row.get(column_mapping['marketing_source'])) if pd.notna(row.get(column_mapping['marketing_source'])) else None
+                        
+                        if column_mapping['capital_amount']:
+                            flg.data5_value = self._parse_float(row.get(column_mapping['capital_amount']))
+                        
+                        if column_mapping['payment_type']:
+                            flg.data6_payment_type = str(row.get(column_mapping['payment_type'])) if pd.notna(row.get(column_mapping['payment_type'])) else None
+                        
+                        if column_mapping['total_interest']:
+                            flg.data7_value = self._parse_float(row.get(column_mapping['total_interest']))
+                        
+                        if column_mapping['regular_repayments']:
+                            flg.data8_value = self._parse_float(row.get(column_mapping['regular_repayments']))
+                        
+                        if column_mapping['total_amount']:
+                            flg.data10_value = self._parse_float(row.get(column_mapping['total_amount']))
+                        
+                        if column_mapping['product_details']:
+                            flg.data29_product_description = str(row.get(column_mapping['product_details'])) if pd.notna(row.get(column_mapping['product_details'])) else None
                         
                         # Calculate sale value
                         flg.sale_value = flg.calculate_sale_value()
                         
-                        # Extract product from description
+                        # Extract products using ProductExtractor
                         if flg.data29_product_description:
-                            product_name = Product.extract_product_from_description(flg.data29_product_description)
-                            flg.product_name = product_name
+                            products_prices = ProductExtractor.extract_products_and_prices(flg.data29_product_description)
                             
-                            # Check if product exists
-                            product = Product.query.filter_by(name=product_name).first()
-                            if not product and product_name != 'Other':
-                                new_products.add(product_name)
+                            # For now, use the primary product
+                            if products_prices:
+                                primary_product = products_prices[0][0]
+                                flg.product_name = primary_product
+                                products_extracted += 1
+                                
+                                # Check if product exists
+                                product = Product.query.filter_by(name=primary_product).first()
+                                if not product and primary_product != 'Other':
+                                    new_products.add(primary_product)
                         
                         # Map marketing source to campaign
                         if flg.marketing_source:
@@ -193,7 +272,7 @@ class DataProcessor:
                         if not existing_flg:
                             db.session.add(flg)
                         
-                        # Now create/update Application record based on affordability result
+                        # Create/Update Application record based on affordability result
                         affordability_result = None
                         if lead_id in self.passed_lead_ids:
                             affordability_result = 'passed'
@@ -216,7 +295,7 @@ class DataProcessor:
                             app.lead_value = flg.data5_value
                             app.current_status = flg.status
                             app.affordability_result = affordability_result
-                            app.lead_partner = flg.marketing_source  # Store marketing source
+                            app.lead_partner = flg.marketing_source
                             
                             if not existing_app:
                                 db.session.add(app)
@@ -229,23 +308,33 @@ class DataProcessor:
                 
                 # Create new products
                 for product_name in new_products:
-                    product = Product(name=product_name)
+                    # Determine category based on product name
+                    category = self._determine_product_category(product_name)
+                    product = Product(name=product_name, category=category)
                     db.session.add(product)
                 
                 db.session.commit()
                 
-                logger.info(f"Processed {count} FLG records, created {applications_created} applications")
+                self.processing_state['flg_loaded'] = True
                 
-                return {
+                logger.info(f"Processed {count} FLG records, created {applications_created} applications, extracted {products_extracted} products")
+                
+                result = {
                     'records_processed': count,
                     'applications_created': applications_created,
+                    'products_extracted': products_extracted,
                     'new_products': list(new_products),
                     'unmapped_sources': list(unmapped_sources),
                     'file_type': 'CSV - All Leads'
                 }
                 
+                if warnings:
+                    result['warnings'] = warnings
+                
+                return result
+                
             else:
-                # Original Excel processing
+                # Excel processing
                 return self._process_flg_excel(filepath)
                 
         except Exception as e:
@@ -253,13 +342,109 @@ class DataProcessor:
             logger.error(f"Error processing FLG data file: {e}")
             raise
     
+    def _map_csv_columns(self, columns):
+        """Map CSV columns to expected fields"""
+        column_mapping = {
+            'lead_id': None,
+            'datetime': None,
+            'status': None,
+            'marketing_source': None,
+            'capital_amount': None,
+            'payment_type': None,
+            'total_interest': None,
+            'regular_repayments': None,
+            'total_amount': None,
+            'product_details': None
+        }
+        
+        for col in columns:
+            col_lower = col.lower().strip()
+            
+            # Lead ID
+            if 'lead' in col_lower and 'id' in col_lower:
+                column_mapping['lead_id'] = col
+            
+            # Date/time
+            elif any(term in col_lower for term in ['date', 'time', 'received', 'activity']):
+                column_mapping['datetime'] = col
+            
+            # Status
+            elif 'status' in col_lower:
+                column_mapping['status'] = col
+            
+            # Marketing source
+            elif any(term in col_lower for term in ['marketing', 'source', 'channel']):
+                column_mapping['marketing_source'] = col
+            
+            # Capital amount
+            elif any(term in col_lower for term in ['capital', 'loan', 'amount borrowed']):
+                column_mapping['capital_amount'] = col
+            
+            # Payment type
+            elif any(term in col_lower for term in ['payment', 'frequency', 'repayment type']):
+                column_mapping['payment_type'] = col
+            
+            # Total interest
+            elif any(term in col_lower for term in ['interest', 'charge']):
+                column_mapping['total_interest'] = col
+            
+            # Regular repayments
+            elif any(term in col_lower for term in ['regular', 'repayment', 'instalment']):
+                column_mapping['regular_repayments'] = col
+            
+            # Total amount
+            elif any(term in col_lower for term in ['total', 'pay', 'repay']):
+                column_mapping['total_amount'] = col
+            
+            # Product details
+            elif any(term in col_lower for term in ['product', 'description', 'details', 'item']):
+                column_mapping['product_details'] = col
+        
+        return column_mapping
+    
+    def _determine_product_category(self, product_name):
+        """Determine product category based on product name"""
+        if 'Sofa' in product_name:
+            return 'Sofa'
+        elif product_name in ['Rattan', 'Bed', 'Dining set']:
+            return 'Furniture'
+        elif product_name in ['Cooker', 'Fridge freezer', 'Washer dryer', 'Dish washer', 
+                              'Microwave', 'Vacuum', 'Air fryer', 'Ninja products', 
+                              'Kitchen Bundle']:
+            return 'Appliances'
+        elif product_name in ['TV', 'Console', 'Laptop']:
+            return 'Electronics'
+        elif product_name == 'Hot tub':
+            return 'Leisure'
+        elif product_name == 'BBQ':
+            return 'Outdoor'
+        else:
+            return 'Other'
+    
     def _process_flg_excel(self, filepath):
         """Process FLG Excel file (legacy support)"""
         try:
-            df = pd.read_excel(filepath, sheet_name='ALL')
+            # Try different sheet names
+            sheet_names = ['ALL', 'All', 'FLG', 'Data', 'Sheet1']
+            df = None
             
-            # Find header row and process...
-            # (keeping existing Excel logic)
+            for sheet_name in sheet_names:
+                try:
+                    df = pd.read_excel(filepath, sheet_name=sheet_name)
+                    logger.info(f"Successfully read sheet '{sheet_name}'")
+                    break
+                except:
+                    continue
+            
+            if df is None:
+                # Read first sheet
+                df = pd.read_excel(filepath, sheet_name=0)
+            
+            # Process similar to CSV
+            column_mapping = self._map_csv_columns(df.columns)
+            
+            # Continue processing as with CSV...
+            # (Similar logic to CSV processing)
             
             raise NotImplementedError("Excel FLG processing not fully implemented yet")
             
@@ -566,6 +751,8 @@ class DataProcessor:
             
             db.session.commit()
             
+            self.processing_state['mappings_loaded'] = True
+            
             logger.info(f"Mapping file processed: {mappings_created} created, {mappings_updated} updated")
             
             return {
@@ -603,22 +790,6 @@ class DataProcessor:
         
         str_val = str(value).upper().strip()
         return str_val in ['NEW', 'TRUE', 'YES', '1', 'Y']
-    
-    def _looks_like_date(self, series):
-        """Check if a series looks like it contains dates"""
-        if len(series) == 0:
-            return False
-        
-        # Check if any values can be parsed as dates
-        date_count = 0
-        for val in series.head(5):
-            try:
-                self._parse_date_safe(val)
-                date_count += 1
-            except:
-                pass
-        
-        return date_count >= 3  # At least 3 out of 5 should be parseable as dates
     
     def _parse_datetime_safe(self, value):
         """Safely parse datetime using multiple formats"""

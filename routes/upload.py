@@ -1,5 +1,6 @@
 """
-Upload routes for handling file uploads
+Upload routes for handling file uploads - FIXED VERSION
+routes/upload.py
 """
 
 from flask import Blueprint, request, jsonify, render_template, current_app, session
@@ -302,6 +303,23 @@ def check_upload_status():
         
         return jsonify({
             'success': True,
+            'status': {
+                'applications': {
+                    'total_records': applications_count,
+                    'last_upload': latest_app.isoformat() if latest_app else None
+                },
+                'flg_data': {
+                    'total_records': flg_count,
+                    'last_upload': latest_flg.isoformat() if latest_flg else None
+                },
+                'ad_spend': {
+                    'total_records': ad_spend_count,
+                    'last_upload': latest_ad.isoformat() if latest_ad else None
+                },
+                'mappings': {
+                    'total_records': mapping_count
+                }
+            },
             'data_counts': {
                 'applications': applications_count,
                 'flg_data': flg_count,
