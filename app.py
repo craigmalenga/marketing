@@ -48,6 +48,7 @@ with app.app_context():
     app.register_blueprint(reports_bp, url_prefix='/api/reports')
     app.register_blueprint(mappings_bp, url_prefix='/api/mappings')
 
+# Define main routes
 @app.route('/')
 def index():
     """Main dashboard page"""
@@ -62,6 +63,11 @@ def upload_page():
 def credit_performance():
     """Credit performance report page"""
     return render_template('credit_performance.html')
+
+@app.route('/marketing-campaign')
+def marketing_campaign():
+    """Marketing campaign report page"""
+    return render_template('marketing_campaign.html')
 
 @app.route('/admin')
 def admin_page():
@@ -155,6 +161,70 @@ def init_database_endpoint():
         
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/upload-history')
+def upload_history():
+    """Get history of file uploads"""
+    try:
+        # Get real upload history from database
+        from models import Application, FLGData, AdSpend
+        from sqlalchemy import func
+        
+        history = []
+        
+        # Get latest application upload
+        latest_app = db.session.query(
+            func.max(Application.created_at).label('latest'),
+            func.count(Application.id).label('count')
+        ).first()
+        
+        if latest_app.latest:
+            history.append({
+                'id': 1,
+                'filename': 'Applications data',
+                'type': 'applications',
+                'uploaded_at': latest_app.latest.isoformat(),
+                'status': 'processed',
+                'records': latest_app.count
+            })
+        
+        # Get latest FLG upload
+        latest_flg = db.session.query(
+            func.max(FLGData.created_at).label('latest'),
+            func.count(FLGData.id).label('count')
+        ).first()
+        
+        if latest_flg.latest:
+            history.append({
+                'id': 2,
+                'filename': 'FLG data',
+                'type': 'flg_data',
+                'uploaded_at': latest_flg.latest.isoformat(),
+                'status': 'processed',
+                'records': latest_flg.count
+            })
+        
+        # Get latest ad spend upload
+        latest_ad = db.session.query(
+            func.max(AdSpend.created_at).label('latest'),
+            func.count(AdSpend.id).label('count')
+        ).first()
+        
+        if latest_ad.latest:
+            history.append({
+                'id': 3,
+                'filename': 'Ad spend data',
+                'type': 'ad_spend', 
+                'uploaded_at': latest_ad.latest.isoformat(),
+                'status': 'processed',
+                'records': latest_ad.count
+            })
+        
+        return jsonify({'success': True, 'data': history})
+        
+    except Exception as e:
+        logger.error(f"Error fetching upload history: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.errorhandler(404)

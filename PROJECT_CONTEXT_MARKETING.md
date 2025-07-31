@@ -1,6 +1,6 @@
 # PROJECT CONTEXT: Marketing Analytics Platform
-# Last Updated: 31 July 2025 at 12:27
-# Version: 1.1
+# Last Updated: 31 July 2025 at 1409
+# Version: 1.2
 
 ## 🔄 DOCUMENT MAINTENANCE INSTRUCTIONS - READ FIRST
 
@@ -19,6 +19,8 @@
 **Technical Details**: [Key code changes]
 **Testing Notes**: [How to verify it works]
 ```
+
+## UPDATE HISTORY
 
 ### Complete Implementation of Core System (31 July 2025 12:27)
 **Problem**: System stopped partway through implementation
@@ -44,6 +46,33 @@
 - Run `flask seed-test-data` to add test products
 - Upload sample Excel files to test data processing
 - Check both reports display correctly with filtering
+
+### Railway Deployment Fixes and Database Initialization (31 July 2025 12:45)
+**Problem**: Multiple deployment issues - numpy/pandas compatibility, SQLAlchemy datetime errors, import errors, database not initialized, Excel parsing failures, expanding charts
+**Solution**: Fixed all deployment issues and added proper database initialization system
+**Files Modified**: 
+- requirements.txt (fixed numpy/pandas versions, updated python-docx)
+- All model files (changed datetime.utcnow to func.now())
+- app.py (fixed imports, added /admin route, added /api/init-database endpoint, updated upload history to use real data)
+- services/__init__.py (removed MappingService from imports)
+- services/data_processor.py (fixed ad spend parsing to match actual Excel structure)
+- templates/index.html (fixed expanding charts)
+- templates/marketing_campaign.html (fixed expanding charts)
+- templates/admin.html (NEW - admin page for database initialization)
+- railway.json (simplified configuration)
+- Removed nixpacks.toml
+**Technical Details**: 
+- Fixed numpy 1.24.3 with pandas 2.0.3 compatibility
+- Changed all SQLAlchemy datetime defaults from datetime.utcnow to func.now()
+- Ad spend parser now looks for "Meta" sheet and correct column names
+- Charts now use fixed height containers
+- Added admin interface for database initialization
+- Upload history now shows real data from database
+**Testing Notes**: 
+- After deployment, go to /admin and click "Initialize Database"
+- Upload Excel files: they should parse without errors
+- Charts should not expand infinitely
+- Data persists between sessions
 
 ## ASSISTANT ROLE & EXPERTISE
 You are an experienced programmer with 30+ years of Excel and VBA expertise, now converting a complex Excel-based marketing analytics platform to a modern web application. You have extensive experience with:
@@ -79,13 +108,14 @@ This is a web-based marketing analytics platform that replaces an Excel-based re
    - Credit Performance by Product
    - Marketing Campaign Performance
 5. Filtering capabilities by date range, campaign, product, ad level
+6. Data persistence - manager can view reports without uploading new data
 
 ### Technology Stack
 - Backend: Python Flask with SQLAlchemy
 - Database: PostgreSQL (production) / SQLite (development)
 - Frontend: Vanilla JavaScript with Chart.js for visualizations
 - File Processing: pandas, openpyxl for Excel files
-- Deployment: Railway-ready with Procfile
+- Deployment: Railway with PostgreSQL
 - CSS Framework: Tailwind CSS via CDN
 
 ## SYSTEM ARCHITECTURE
@@ -141,6 +171,7 @@ marketing-analytics-platform/
 ├── requirements.txt            # Python dependencies
 ├── Procfile                   # Railway deployment
 ├── runtime.txt                # Python version
+├── railway.json               # Railway configuration
 ├── README.md                  # Project documentation
 ├── PROJECT_CONTEXT_MARKETING.md # This file
 ├── .env.example               # Environment variables template
@@ -182,18 +213,14 @@ marketing-analytics-platform/
 │   ├── index.html
 │   ├── upload.html
 │   ├── credit_performance.html
-│   └── marketing_campaign.html
+│   ├── marketing_campaign.html
+│   └── admin.html           # NEW: Admin page for DB init
 │
-├── data/                      # Local data storage
-│   ├── uploads/              # Temporary file uploads
-│   │   └── .gitkeep
-│   └── exports/              # Generated reports
-│       └── .gitkeep
-│
-└── tests/                     # Test suite
-    ├── __init__.py
-    ├── test_data_processor.py
-    └── test_reports.py
+└── data/                      # Local data storage
+    ├── uploads/              # Temporary file uploads
+    │   └── .gitkeep
+    └── exports/              # Generated reports
+        └── .gitkeep
 ```
 
 ## KEY FEATURES IMPLEMENTED
@@ -202,13 +229,15 @@ marketing-analytics-platform/
 - Accept three weekly Excel files
 - Accept Word document for FLG/Meta mappings
 - Validate file formats and structure
-- Show upload status and history
+- Show upload status and history (real data from DB)
+- Handle specific Excel sheet names and column structures
 
 ### 2. Data Processing Pipeline ✓
 - Parse Excel files using pandas
 - Map data to database schema
 - Handle status variant mappings
 - Update or insert records appropriately
+- Persist all data to PostgreSQL
 
 ### 3. Credit Performance Report ✓
 Replicate Excel metrics:
@@ -239,73 +268,179 @@ Replicate Excel metrics:
 - Set 1s and 0s for each status
 - Add new statuses as they appear
 - Initialize default mappings
+- 33 default status mappings pre-configured
 
-## IMPLEMENTATION PHASES
+### 7. Admin Interface ✓
+- Database initialization page at /admin
+- One-click database setup
+- View database status
+- Initialize default data
 
-### Phase 1: Core Infrastructure (COMPLETED ✓)
-- [x] Project structure setup
-- [x] Database schema creation
-- [x] Basic Flask application
-- [x] File upload endpoints
-- [x] Data models
+## DEPLOYMENT CONFIGURATION
 
-### Phase 2: Data Processing (COMPLETED ✓)
-- [x] Excel file parsers
-- [x] Data validation
-- [x] Database population
-- [x] Status mapping logic
+### Railway Deployment Settings
+- **Build Command**: (leave empty - Railway auto-detects)
+- **Start Command**: `gunicorn app:app --bind 0.0.0.0:$PORT`
+- **Environment Variables**:
+  - `SECRET_KEY`: (generate a secure random key)
+  - `FLASK_ENV`: production
+  - `DATABASE_URL`: (automatically set by Railway PostgreSQL)
 
-### Phase 3: Report Generation (COMPLETED ✓)
-- [x] Credit performance calculations
-- [x] Marketing campaign calculations
-- [x] API endpoints for reports
-- [x] Basic report display
+### Database Initialization Process
+1. Deploy app to Railway
+2. Add PostgreSQL database
+3. Visit `https://your-app.railway.app/admin`
+4. Click "Initialize Database" button
+5. Upload your Excel files
 
-### Phase 4: Frontend Development (COMPLETED ✓)
-- [x] Upload interface
-- [x] Report visualization
-- [x] Filtering controls
-- [x] Status management UI
+### Excel File Requirements
 
-### Phase 5: Advanced Features (PARTIALLY COMPLETE)
-- [x] Export functionality
-- [ ] Historical comparisons
-- [ ] Automated weekly processing
-- [ ] Email notifications
+#### Applications Data (Excel)
+- **Filename**: Any .xlsx file
+- **Required Sheets**: 
+  - "Affordability data - passed"
+  - "Affordability data - failed"
+- **Columns**: DateTime, Status, User, Lead ID, LeadDateTime, LeadName, LeadPostcode, LeadIntroducer, LeadPartner, LeadCost, LeadValue, CurrentStatus
 
-### Phase 6: Deployment (READY)
-- [x] Railway configuration
-- [x] Production database setup files
-- [x] Environment variables
-- [ ] Performance optimization (pending real-world testing)
+#### FLG Full Data (Excel)
+- **Filename**: Any .xlsx file
+- **Required Sheet**: "ALL"
+- **Columns**: Reference, ReceivedDateTime, Status, MarketingSource, Data5, Data6, Data7, Data8, Data10, Data29
+
+#### Ad Spend Data (Excel)
+- **Filename**: Any .xlsx file
+- **Required Sheet**: "Meta"
+- **Columns**: Reporting ends, Meta campaign name, Ad level, Spend, New -versus last weel?
 
 ## CRITICAL IMPLEMENTATION NOTES
 
 ### Excel Formula Translations
-The Excel workbook uses complex formulas that need translation:
+The Excel workbook uses complex formulas that have been translated:
 - SUBTOTAL functions → SQL aggregations with filters
 - Pivot table logic → Programmatic grouping and aggregation
 - Cell references → Database relationships
 - Conditional formatting → Frontend styling logic
 
 ### Data Processing Considerations
-- Date formats vary between files (handle both string and date objects)
-- Missing data should be handled gracefully
-- Status names may have variations (use fuzzy matching)
-- Maintain audit trail of all uploads
+- Date formats vary between files (handled for both string and date objects)
+- Missing data is handled gracefully
+- Status names may have variations (exact matching used)
+- All uploads are logged with timestamps
+- Data persists between sessions
+
+### Fixed Issues
+1. **numpy/pandas compatibility** - Fixed with specific versions
+2. **SQLAlchemy datetime** - Using func.now() instead of datetime.utcnow
+3. **Import errors** - Removed circular imports
+4. **Chart expansion** - Fixed with height containers
+5. **Excel parsing** - Matches actual file structure
+6. **Database initialization** - Admin page with init button
 
 ### Performance Optimization
-- Index database on frequently queried columns
-- Cache report calculations
-- Paginate large result sets
-- Use connection pooling for database
+- Database indexes on frequently queried columns
+- Report calculations optimized with SQL
+- Connection pooling via SQLAlchemy
+- Efficient Excel parsing with pandas
 
 ### Security Considerations
-- Validate all file uploads
-- Sanitize file names
-- Implement user authentication (future phase)
-- Log all data modifications
-- Secure file storage
+- File upload validation
+- Secure filenames
+- SQL injection prevention via SQLAlchemy
+- XSS prevention in templates
+- CSRF protection via Flask
+
+## API ENDPOINTS
+
+### Upload Endpoints
+- `POST /api/upload/applications` - Upload applications data
+- `POST /api/upload/flg-data` - Upload FLG data
+- `POST /api/upload/ad-spend` - Upload ad spend data
+- `POST /api/upload/flg-meta-mapping` - Upload FLG/Meta mappings
+- `GET /api/upload/check-status` - Check upload status
+
+### Report Endpoints
+- `GET /api/reports/credit-performance` - Get credit performance report
+- `GET /api/reports/marketing-campaign` - Get marketing campaign report
+- `POST /api/reports/export/credit-performance` - Export credit report
+- `POST /api/reports/export/marketing-campaign` - Export marketing report
+- `GET /api/reports/summary` - Get dashboard summary
+- `GET /api/reports/available-filters` - Get filter options
+
+### Mapping Endpoints
+- `GET /api/mappings/status` - Get all status mappings
+- `POST /api/mappings/status` - Create status mapping
+- `PUT /api/mappings/status/<id>` - Update status mapping
+- `DELETE /api/mappings/status/<id>` - Delete status mapping
+- `POST /api/mappings/status/initialize` - Initialize defaults
+- `GET /api/mappings/flg-meta` - Get FLG/Meta mappings
+- `POST /api/mappings/flg-meta` - Create FLG/Meta mapping
+
+### Admin Endpoints
+- `POST /api/init-database` - Initialize database with defaults
+- `GET /api/health` - Health check endpoint
+
+## NEXT STEPS
+
+### For Initial Setup:
+1. **Deploy to Railway** ✓
+2. **Add PostgreSQL database** ✓
+3. **Visit /admin and initialize database**
+4. **Upload your three Excel files**
+5. **Verify reports show correct data**
+
+### For Ongoing Use:
+1. **Weekly uploads** - Upload new data files each week
+2. **Monitor performance** - Check Railway metrics
+3. **Backup database** - Regular PostgreSQL backups
+4. **Update mappings** - Add new statuses as they appear
+
+### Future Enhancements to Consider:
+
+1. **User Authentication**: Add login system to secure the platform
+2. **Automated Uploads**: Schedule automatic file imports
+3. **Enhanced Analytics**:
+   - Trend analysis over time
+   - Year-over-year comparisons
+   - Predictive analytics
+4. **Email Reports**: Automated weekly report distribution
+5. **API Access**: REST API for external systems
+6. **Data Validation**: More robust file validation
+7. **Audit Trail**: Complete history of all changes
+8. **Performance Dashboards**: Real-time KPI monitoring
+
+## TROUBLESHOOTING GUIDE
+
+### Common Issues and Solutions
+
+1. **"No tables in database"**
+   - Visit /admin and click Initialize Database
+   - Or use DBeaver with Railway PostgreSQL credentials
+
+2. **"Excel file has wrong format"**
+   - Check sheet names match exactly (case-sensitive)
+   - Ensure required columns are present
+   - Ad spend must have "Meta" sheet
+
+3. **"Charts expanding infinitely"**
+   - Deploy the latest code with chart fixes
+   - Clear browser cache
+
+4. **"All values show zero"**
+   - Upload data files first
+   - Check database initialization completed
+   - Verify date filters aren't excluding all data
+
+5. **"Import errors on deployment"**
+   - Check requirements.txt has correct versions
+   - Ensure all files are committed to git
+
+### Railway Deployment Checklist
+- [ ] PostgreSQL database added
+- [ ] Environment variables set (SECRET_KEY, FLASK_ENV)
+- [ ] Start command is `gunicorn app:app --bind 0.0.0.0:$PORT`
+- [ ] Database initialized via /admin
+- [ ] Test file uploads work
+- [ ] Reports display data correctly
 
 ## CODE GENERATION INSTRUCTIONS
 
@@ -325,51 +460,3 @@ The Excel workbook uses complex formulas that need translation:
 3. **USE ARTIFACTS SYSTEM** - Code goes in the right panel, not in chat responses
 4. **NO SNIPPETS** - Even for single-line changes, provide the entire file
 5. **PRESERVE EVERYTHING** - Every comment, every blank line, every import
-
-## NEXT STEPS
-
-### Immediate Actions Required:
-
-1. **Save all generated files** to your project directory maintaining the exact folder structure
-2. **Create virtual environment and install dependencies**:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   pip install -r requirements.txt
-   ```
-3. **Create .env file** from .env.example and set your SECRET_KEY
-4. **Initialize the database**:
-   ```bash
-   flask init-db
-   flask seed-test-data
-   ```
-5. **Run the application**:
-   ```bash
-   flask run
-   ```
-6. **Test with your Excel files**:
-   - Navigate to http://localhost:5000
-   - Go to Upload Data page
-   - Upload your three Excel files
-   - Check the reports
-
-### Future Enhancements to Consider:
-
-1. **User Authentication**: Add login system to secure the platform
-2. **Data Validation**: Add more robust validation for uploaded files
-3. **Performance Optimization**: 
-   - Add database indexes for large datasets
-   - Implement caching for reports
-   - Use background jobs for file processing
-4. **Enhanced Reporting**:
-   - Add trend analysis over time
-   - Implement year-over-year comparisons
-   - Create PDF export option
-5. **Automation**:
-   - Schedule automatic report generation
-   - Send email alerts for anomalies
-   - Auto-import from cloud storage
-6. **Data Quality**:
-   - Add data quality checks
-   - Highlight missing or inconsistent data
-   - Provide data reconciliation reports
