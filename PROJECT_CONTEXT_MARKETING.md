@@ -1,6 +1,6 @@
 # PROJECT CONTEXT: Marketing Analytics Platform
-# Last Updated: 31 July 2025 at 1700
-# Version: 1.4
+# Last Updated: 31 July 2025 at 1900
+# Version: 1.5
 
 ## 🔄 DOCUMENT MAINTENANCE INSTRUCTIONS - READ FIRST
 
@@ -21,6 +21,25 @@
 ```
 
 ## UPDATE HISTORY
+
+### Product Extraction and Report Fixes (31 July 2025 19:00)
+**Problem**: Missing VBA macro functionality, incorrect report calculations, missing data validation
+**Solution**: Implemented ProductExtractor service, fixed upload status endpoint, enhanced data processing
+**Files Modified**: 
+- services/product_extractor.py (NEW - replicates VBA macro)
+- routes/upload.py (fixed check-status endpoint structure)
+- services/data_processor.py (integrated ProductExtractor, added validation)
+**Technical Details**: 
+- ProductExtractor replicates Excel VBA macro logic for extracting products/prices
+- Added processing state tracking and validation warnings
+- Fixed upload status endpoint to return proper nested structure
+- Enhanced column mapping for flexible CSV formats
+- Added product category determination logic
+**Testing Notes**: 
+- Upload files in recommended order: mappings → affordability → all_leads → ad spend
+- Check for validation warnings in response
+- Verify products are extracted from descriptions
+- Check upload status endpoint returns proper structure for admin page
 
 ### Data Structure Understanding and Upload Fixes (31 July 2025 17:00)
 **Problem**: Upload routes returning 404 errors, circular import issues, incorrect understanding of data structure
@@ -275,7 +294,8 @@ marketing-analytics-platform/
 │   ├── __init__.py           # NO module-level imports!
 │   ├── data_processor.py     # Excel/CSV file processing
 │   ├── report_generator.py   # Report calculations
-│   └── mapping_service.py    # Handle mappings
+│   ├── mapping_service.py    # Handle mappings
+│   └── product_extractor.py  # Extract products from descriptions (NEW)
 │
 ├── static/                    # Frontend assets
 │   ├── css/
@@ -315,6 +335,7 @@ marketing-analytics-platform/
 - Real-time upload progress
 - Detailed processing feedback
 - Correct data structure handling
+- Processing order validation with warnings
 
 ### 2. Data Processing Pipeline ✓
 - Affordability CSVs → Extract Lead IDs only
@@ -322,8 +343,18 @@ marketing-analytics-platform/
 - Historic ad spend → Flexible column detection
 - Row-level error handling
 - State management for Lead ID tracking
+- Product extraction from descriptions (NEW)
+- Flexible column mapping for various CSV formats
 
-### 3. Credit Performance Report ✓
+### 3. Product Extraction Service ✓ (NEW)
+Replicates Excel VBA macro functionality:
+- Pattern matching for 25+ product types
+- Price extraction from descriptions
+- Bundle detection and price distribution
+- Handles multiple products in single description
+- Category assignment based on product type
+
+### 4. Credit Performance Report ✓
 Replicate Excel metrics:
 - Number of applications by product
 - Average credit value applied
@@ -332,7 +363,7 @@ Replicate Excel metrics:
 - Processing and approval rates
 - Credit issued metrics
 
-### 4. Marketing Campaign Report ✓
+### 5. Marketing Campaign Report ✓
 Replicate Excel metrics:
 - Marketing cost by campaign
 - Cost per enquiry/application/approved loan
@@ -340,21 +371,21 @@ Replicate Excel metrics:
 - Credit issued totals and averages
 - Status breakdown with 1s and 0s
 
-### 5. Filtering System ✓
+### 6. Filtering System ✓
 - Date range selection
 - Product category filtering
 - Campaign filtering
 - Ad level filtering
 - Export to Excel functionality
 
-### 6. Status Management ✓
+### 7. Status Management ✓
 - UI to manage status variants
 - Set 1s and 0s for each status
 - Add new statuses as they appear
 - Initialize default mappings
 - 33 default status mappings pre-configured
 
-### 7. Admin Interface ✓
+### 8. Admin Interface ✓
 - Database initialization page at /admin
 - One-click database setup
 - View database status
@@ -379,12 +410,21 @@ Replicate Excel metrics:
 
 ### Correct Data Upload Order
 1. **Initialize Database** (/admin)
-2. **Upload FLG to Meta Mappings** (Word doc)
+2. **Upload FLG to Meta Mappings** (Word doc) - RECOMMENDED FIRST
 3. **Upload Affordability CSVs** (both passed and failed)
 4. **Upload All Leads CSV** (main data file)
 5. **Upload Historic Ad Spend** (Excel files)
 
+Note: System will warn if files uploaded out of order but will still process
+
 ## CRITICAL IMPLEMENTATION NOTES
+
+### Product Extraction Logic
+- ProductExtractor service replicates VBA macro "Populate_product_types_and_prices()"
+- Checks specific sofa models before generic "Sofa - other"
+- Extracts multiple prices using various patterns
+- Handles bundles by distributing total price
+- Falls back to "Other" if no products matched
 
 ### Circular Import Prevention
 - `services/__init__.py` has NO module-level imports
@@ -397,6 +437,7 @@ Replicate Excel metrics:
 2. **All Leads file** creates both FLG records AND Application records
 3. **Application records** only created for Lead IDs found in affordability sets
 4. **Marketing sources** mapped to campaigns using FLG to Meta mappings
+5. **Products extracted** from descriptions using pattern matching
 
 ### Excel Formula Translations
 The Excel workbook uses complex formulas that have been translated:
@@ -404,6 +445,7 @@ The Excel workbook uses complex formulas that have been translated:
 - Pivot table logic → Programmatic grouping and aggregation
 - Cell references → Database relationships
 - Conditional formatting → Frontend styling logic
+- VBA macro logic → ProductExtractor service
 
 ### Fixed Issues (Chronological)
 1. **numpy/pandas compatibility** - Fixed with specific versions
@@ -418,6 +460,9 @@ The Excel workbook uses complex formulas that have been translated:
 10. **URL routing** - Removed duplicate prefixes in blueprint registration
 11. **Circular imports** - Lazy loading in services and routes
 12. **Data structure** - Correct understanding of affordability vs all_leads
+13. **Product extraction** - VBA macro functionality replicated
+14. **Upload status endpoint** - Fixed structure for admin page
+15. **Processing validation** - Added warnings for out-of-order uploads
 
 ### Performance Optimization
 - Database indexes on frequently queried columns
@@ -442,7 +487,7 @@ The Excel workbook uses complex formulas that have been translated:
 - `POST /api/upload/flg-data` - Upload FLG data (CSV or Excel)
 - `POST /api/upload/ad-spend` - Upload ad spend data (Excel)
 - `POST /api/upload/flg-meta-mapping` - Upload FLG/Meta mappings (Word/Excel)
-- `GET /api/upload/check-status` - Check upload status and history
+- `GET /api/upload/check-status` - Check upload status and history (FIXED)
 
 ### Report Endpoints
 - `GET /api/reports/credit-performance` - Get credit performance report
@@ -471,8 +516,8 @@ The Excel workbook uses complex formulas that have been translated:
 1. **Deploy to Railway** ✓
 2. **Add PostgreSQL database** ✓
 3. **Visit /admin and initialize database** ✓
-4. **Upload files in correct order**:
-   - FLG to Meta mappings first
+4. **Upload files in recommended order**:
+   - FLG to Meta mappings first (IMPORTANT)
    - Affordability CSVs (both)
    - All leads CSV
    - Historic ad spend files
@@ -483,6 +528,7 @@ The Excel workbook uses complex formulas that have been translated:
 2. **Monitor browser console** - F12 for debugging
 3. **Check unmapped sources** - Update FLG to Meta mappings as needed
 4. **Update status mappings** - Add new statuses as they appear
+5. **Review validation warnings** - System will warn about processing order
 
 ### Future Enhancements to Consider:
 1. **Automated Upload Order** - System could detect and queue files
@@ -496,6 +542,8 @@ The Excel workbook uses complex formulas that have been translated:
 6. **Bulk Historic Import** - Process years of historic data
 7. **Audit Trail** - Complete history of all changes
 8. **Performance Dashboards** - Real-time KPI monitoring
+9. **Multi-product handling** - Full support for multiple products per sale
+10. **Advanced price extraction** - Handle more complex pricing scenarios
 
 ## TROUBLESHOOTING GUIDE
 
@@ -514,7 +562,7 @@ The Excel workbook uses complex formulas that have been translated:
    - Check file size is under 50MB
 
 3. **"No Lead ID column found"**
-   - Ensure CSV has exact column name "Lead ID"
+   - Ensure CSV has column containing "Lead" and "ID"
    - Check for hidden characters or spaces
    - Verify file encoding is UTF-8
 
@@ -530,6 +578,16 @@ The Excel workbook uses complex formulas that have been translated:
    - Check FLG to Meta mappings are loaded
    - Verify affordability files uploaded before all_leads
 
+6. **Products showing as "Other"**
+   - Check product descriptions contain recognizable keywords
+   - Review ProductExtractor patterns in services/product_extractor.py
+   - Ensure descriptions aren't empty
+
+7. **Admin page not loading data counts**
+   - Check /api/upload/check-status endpoint returns proper structure
+   - Verify database connection is working
+   - Check browser console for JavaScript errors
+
 ### Debugging Commands
 ```bash
 # Check Flask routes
@@ -544,6 +602,10 @@ flask shell
 >>> from models import Application, FLGData
 >>> Application.query.count()
 >>> FLGData.query.count()
+
+# Check product extraction
+>>> from services.product_extractor import ProductExtractor
+>>> ProductExtractor.extract_products_and_prices("Sofa - Aldis £1,299.99")
 ```
 
 ### Railway Deployment Checklist
@@ -552,6 +614,7 @@ flask shell
 - [x] Start command is `gunicorn app:app --bind 0.0.0.0:$PORT`
 - [x] Database initialized via /admin
 - [x] Upload folders created automatically
+- [x] Product extraction service deployed
 - [ ] Test file uploads in correct order
 - [ ] Verify reports display data correctly
 
@@ -574,3 +637,4 @@ flask shell
 4. **NO SNIPPETS** - Even for single-line changes, provide the entire file
 5. **PRESERVE EVERYTHING** - Every comment, every blank line, every import
 6. **AVOID CIRCULAR IMPORTS** - Use lazy imports in functions when needed
+7. **INCLUDE NEW SERVICES** - Remember to add ProductExtractor when updating data_processor.py
