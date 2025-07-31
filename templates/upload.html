@@ -1,290 +1,181 @@
 {% extends "base.html" %}
 
-{% block title %}Upload Data - Marketing Analytics{% endblock %}
+{% block title %}Upload Data - Marketing Analytics Platform{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <h1 class="text-3xl font-bold text-gray-900 mb-8">Upload Data Files</h1>
+<!-- HERO -->
+<section class="hero">
+    <div class="info-box">
+        <h2>Data Upload Centre</h2>
+        <p>Upload your weekly data files to update the analytics platform. Process affordability checks, lead data, and advertising spend to generate comprehensive marketing insights.</p>
+    </div>
+</section>
+
+<!-- Upload Instructions -->
+<div class="card">
+    <h3><i class="fas fa-info-circle" style="color: var(--primary-cyan);"></i> Upload Instructions</h3>
+    <div style="background: #f0fffd; padding: 16px; border-radius: 4px; margin-top: 12px;">
+        <p style="margin: 0 0 12px;"><strong>Recommended upload order for best results:</strong></p>
+        <ol style="margin: 0; padding-left: 24px;">
+            <li style="margin-bottom: 8px;"><strong>FLG to Meta Mappings</strong> (Word document) - Upload this first to ensure proper campaign mapping</li>
+            <li style="margin-bottom: 8px;"><strong>Affordability CSV files</strong> - Both passed and failed files</li>
+            <li style="margin-bottom: 8px;"><strong>All Leads CSV</strong> - Main data file with all lead information</li>
+            <li style="margin-bottom: 8px;"><strong>Historic Ad Spend</strong> (Excel files) - Campaign spending data</li>
+        </ol>
+        <p style="margin: 12px 0 0; color: #666;">You can upload multiple files at once using the drag-and-drop area below.</p>
+    </div>
+</div>
+
+<!-- Multi-file Upload Section -->
+<div class="card">
+    <h3>Upload Multiple Files</h3>
     
-    <!-- Upload Instructions -->
-    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-8">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                </svg>
-            </div>
-            <div class="ml-3">
-                <h3 class="text-sm font-medium text-blue-800">Upload Instructions</h3>
-                <div class="mt-2 text-sm text-blue-700">
-                    <p>You can upload multiple files at once. Supported file types:</p>
-                    <ul class="list-disc list-inside mt-1">
-                        <li><strong>Applications Data:</strong> CSV files (passed/failed) or Excel with sheets</li>
-                        <li><strong>FLG Data:</strong> CSV file (all_leads) or Excel with "ALL" sheet</li>
-                        <li><strong>Ad Spend:</strong> Excel file with campaign spend data</li>
-                        <li><strong>Mappings:</strong> Word document (.docx) with FLG to Meta mappings</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
+    <div class="upload-zone" id="dropZone">
+        <input type="file" id="multiFileInput" multiple accept=".csv,.xlsx,.xls,.docx,.doc" style="display: none;">
+        
+        <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 48 48">
+            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <p style="margin: 16px 0 8px; font-size: 1.1rem;">
+            <span style="color: var(--primary-cyan); cursor: pointer;">Click to upload files</span>
+            or drag and drop
+        </p>
+        <p style="color: #666; font-size: 0.9rem; margin: 0;">CSV, XLSX, XLS, DOCX up to 50MB each</p>
     </div>
-
-    <!-- Multi-file Upload Section -->
-    <div class="bg-white shadow rounded-lg p-6 mb-8">
-        <h2 class="text-xl font-semibold text-gray-900 mb-4">Upload Multiple Files</h2>
+    
+    <!-- Selected Files List -->
+    <div id="selectedFiles" style="display: none; margin-top: 20px;">
+        <h4 style="margin-bottom: 12px;">Selected Files:</h4>
+        <ul id="fileList" style="list-style: none; padding: 0; margin: 0 0 16px;"></ul>
         
-        <div class="border-2 border-dashed border-gray-300 rounded-lg p-8">
-            <input type="file" id="multiFileInput" multiple accept=".csv,.xlsx,.xls,.docx,.doc" class="hidden">
-            
-            <div id="dropZone" class="text-center cursor-pointer">
-                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-                <p class="mt-2 text-sm text-gray-600">
-                    <span class="font-medium text-indigo-600 hover:text-indigo-500">Click to upload files</span>
-                    or drag and drop
-                </p>
-                <p class="text-xs text-gray-500 mt-1">CSV, XLSX, XLS, DOCX up to 50MB each</p>
-            </div>
-        </div>
-        
-        <!-- Selected Files List -->
-        <div id="selectedFiles" class="mt-4 hidden">
-            <h3 class="text-sm font-medium text-gray-900 mb-2">Selected Files:</h3>
-            <ul id="fileList" class="space-y-2"></ul>
-            
-            <button id="uploadAllBtn" class="mt-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                Upload All Files
-            </button>
-        </div>
-        
-        <!-- Upload Progress -->
-        <div id="uploadProgress" class="mt-6 hidden">
-            <h3 class="text-sm font-medium text-gray-900 mb-2">Upload Progress:</h3>
-            <div id="progressItems" class="space-y-3"></div>
-        </div>
+        <button id="uploadAllBtn" class="btn btn-success" style="width: 100%;">
+            <i class="fas fa-upload"></i>Upload All Files
+        </button>
     </div>
+    
+    <!-- Upload Progress -->
+    <div id="uploadProgress" style="display: none; margin-top: 24px;">
+        <h4 style="margin-bottom: 12px;">Upload Progress:</h4>
+        <div id="progressItems"></div>
+    </div>
+</div>
 
-    <!-- Individual Upload Sections (collapsed by default) -->
-    <details class="bg-white shadow rounded-lg p-6 mb-6">
-        <summary class="cursor-pointer font-semibold text-gray-900">Individual File Upload (Legacy)</summary>
-        
-        <div class="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <!-- Applications Data -->
-            <div class="upload-section">
-                <h3 class="text-lg font-medium text-gray-900 mb-2">Applications Data</h3>
-                <div class="upload-status mb-2" id="applications-status">
-                    <span class="status-icon">ℹ️</span>
-                    <span class="status-text">Upload CSV files or Excel with affordability check data</span>
-                </div>
-                <div class="upload-area" data-upload-type="applications">
-                    <input type="file" class="file-input" id="applications-file" accept=".csv,.xlsx,.xls">
-                    <div class="upload-placeholder">
-                        <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                        </svg>
-                        <p>Drop file here or click to browse</p>
-                        <p class="text-sm text-gray-500">(.csv, .xlsx, or .xls files only)</p>
-                    </div>
-                </div>
-            </div>
+<!-- Recent Upload History -->
+<div class="card">
+    <h3>Recent Upload History</h3>
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Filename</th>
+                    <th>Type</th>
+                    <th>Upload Date</th>
+                    <th>Status</th>
+                    <th class="text-right">Records</th>
+                </tr>
+            </thead>
+            <tbody id="upload-history-tbody">
+                <tr>
+                    <td colspan="5" class="text-center" style="padding: 24px; color: #666;">
+                        Loading upload history...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
 
-            <!-- FLG Full Data -->
-            <div class="upload-section">
-                <h3 class="text-lg font-medium text-gray-900 mb-2">FLG Full Data</h3>
-                <div class="upload-status mb-2" id="flg-status">
-                    <span class="status-icon">ℹ️</span>
-                    <span class="status-text">Upload CSV or Excel file with lead information</span>
-                </div>
-                <div class="upload-area" data-upload-type="flg-data">
-                    <input type="file" class="file-input" id="flg-file" accept=".csv,.xlsx,.xls">
-                    <div class="upload-placeholder">
-                        <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                        </svg>
-                        <p>Drop file here or click to browse</p>
-                        <p class="text-sm text-gray-500">(.csv, .xlsx, or .xls files only)</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Ad Spend Data -->
-            <div class="upload-section">
-                <h3 class="text-lg font-medium text-gray-900 mb-2">Ad Spend Data</h3>
-                <div class="upload-status mb-2" id="ad-spend-status">
-                    <span class="status-icon">ℹ️</span>
-                    <span class="status-text">Upload Excel file with campaign spend data</span>
-                </div>
-                <div class="upload-area" data-upload-type="ad-spend">
-                    <input type="file" class="file-input" id="ad-spend-file" accept=".xlsx,.xls">
-                    <div class="upload-placeholder">
-                        <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                        </svg>
-                        <p>Drop file here or click to browse</p>
-                        <p class="text-sm text-gray-500">(.xlsx or .xls files only)</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- FLG to Meta Mapping -->
-            <div class="upload-section">
-                <h3 class="text-lg font-medium text-gray-900 mb-2">FLG to Meta Name Mapping</h3>
-                <div class="upload-status mb-2" id="mapping-status">
-                    <span class="status-icon">ℹ️</span>
-                    <span class="status-text">Upload Word document with campaign mappings</span>
-                </div>
-                <div class="upload-area" data-upload-type="flg-meta-mapping">
-                    <input type="file" class="file-input" id="mapping-file" accept=".docx,.doc,.xlsx,.xls">
-                    <div class="upload-placeholder">
-                        <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                        </svg>
-                        <p>Drop file here or click to browse</p>
-                        <p class="text-sm text-gray-500">(.docx, .doc, .xlsx or .xls files)</p>
-                    </div>
-                </div>
-            </div>
+<!-- Data Status Summary -->
+<div class="card">
+    <h3>Current Data Status</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px;">
+        <div style="background: #f9f9f9; padding: 16px; border-radius: 4px; border-left: 4px solid var(--primary-cyan);">
+            <h4 style="margin: 0 0 8px; color: var(--primary-navy);">Applications</h4>
+            <p style="margin: 4px 0; font-size: 0.9rem;">Total records: <strong id="app-count">0</strong></p>
+            <p style="margin: 4px 0; font-size: 0.9rem; color: #666;">Last upload: <span id="app-last-upload">Never</span></p>
         </div>
-    </details>
-
-    <!-- Recent Upload History -->
-    <div class="bg-white shadow rounded-lg p-6">
-        <h2 class="text-xl font-semibold text-gray-900 mb-4">Recent Upload History</h2>
-        <div id="uploadHistory" class="space-y-3">
-            <p class="text-gray-500">Loading upload history...</p>
+        <div style="background: #f9f9f9; padding: 16px; border-radius: 4px; border-left: 4px solid var(--primary-cyan);">
+            <h4 style="margin: 0 0 8px; color: var(--primary-navy);">FLG Data</h4>
+            <p style="margin: 4px 0; font-size: 0.9rem;">Total records: <strong id="flg-count">0</strong></p>
+            <p style="margin: 4px 0; font-size: 0.9rem; color: #666;">Last upload: <span id="flg-last-upload">Never</span></p>
+        </div>
+        <div style="background: #f9f9f9; padding: 16px; border-radius: 4px; border-left: 4px solid var(--primary-cyan);">
+            <h4 style="margin: 0 0 8px; color: var(--primary-navy);">Ad Spend</h4>
+            <p style="margin: 4px 0; font-size: 0.9rem;">Total records: <strong id="ad-count">0</strong></p>
+            <p style="margin: 4px 0; font-size: 0.9rem; color: #666;">Last upload: <span id="ad-last-upload">Never</span></p>
+        </div>
+        <div style="background: #f9f9f9; padding: 16px; border-radius: 4px; border-left: 4px solid var(--primary-cyan);">
+            <h4 style="margin: 0 0 8px; color: var(--primary-navy);">Mappings</h4>
+            <p style="margin: 4px 0; font-size: 0.9rem;">Total mappings: <strong id="mapping-count">0</strong></p>
+            <p style="margin: 4px 0; font-size: 0.9rem; color: #666;">FLG to Meta mappings configured</p>
         </div>
     </div>
 </div>
 
 <style>
-.upload-section {
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
-    padding: 1.5rem;
-}
-
-.upload-area {
-    border: 2px dashed #d1d5db;
-    border-radius: 0.5rem;
-    padding: 2rem;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    background-color: #f9fafb;
-    position: relative;
-    min-height: 150px;
-}
-
-.upload-area:hover {
-    border-color: #6366f1;
-    background-color: #eef2ff;
-}
-
-.upload-area.drag-over {
-    border-color: #6366f1;
-    background-color: #e0e7ff;
-}
-
-.upload-area.uploading {
-    cursor: not-allowed;
-    opacity: 0.6;
-}
-
-.file-input {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    cursor: pointer;
-}
-
-.upload-icon {
-    width: 48px;
-    height: 48px;
-    margin: 0 auto 1rem;
-    color: #9ca3af;
-}
-
-.upload-status {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem;
-    border-radius: 0.375rem;
-    font-size: 0.875rem;
-}
-
-.upload-status.success {
-    background-color: #d1fae5;
-    color: #065f46;
-}
-
-.upload-status.error {
-    background-color: #fee2e2;
-    color: #991b1b;
-}
-
-.upload-status.processing {
-    background-color: #dbeafe;
-    color: #1e40af;
-}
-
 .file-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.75rem;
-    background-color: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.375rem;
+    padding: 12px;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 8px;
 }
 
-.file-item .file-info {
+.file-info {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 12px;
 }
 
-.file-item .file-icon {
+.file-icon {
     width: 24px;
     height: 24px;
-    color: #6b7280;
+    color: var(--primary-cyan);
+}
+
+.remove-btn {
+    background: var(--primary-red);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.remove-btn:hover {
+    opacity: 0.9;
 }
 
 .progress-item {
-    background-color: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.375rem;
-    padding: 1rem;
-}
-
-.progress-bar {
-    height: 8px;
-    background-color: #e5e7eb;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
     border-radius: 4px;
-    overflow: hidden;
-    margin-top: 0.5rem;
+    padding: 16px;
+    margin-bottom: 12px;
 }
 
-.progress-bar-fill {
-    height: 100%;
-    background-color: #6366f1;
-    transition: width 0.3s ease;
+.status-message {
+    font-size: 0.9rem;
+    margin-top: 8px;
+    color: #666;
 }
 
-#dropZone:hover {
-    background-color: #f9fafb;
+.status-message.success {
+    color: #155724;
 }
 
-#dropZone.drag-over {
-    background-color: #eef2ff;
-    border-color: #6366f1;
+.status-message.error {
+    color: #721c24;
 }
 </style>
+{% endblock %}
 
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/upload.js') }}"></script>
 <script>
 // Multi-file upload functionality
 document.addEventListener('DOMContentLoaded', function() {
@@ -297,6 +188,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const progressItems = document.getElementById('progressItems');
     
     let filesToUpload = [];
+    
+    // Load initial status
+    loadUploadStatus();
+    loadUploadHistory();
     
     // Click to select files
     dropZone.addEventListener('click', () => multiFileInput.click());
@@ -340,20 +235,18 @@ document.addEventListener('DOMContentLoaded', function() {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                     </svg>
                     <div>
-                        <p class="font-medium text-sm">${file.name}</p>
-                        <p class="text-xs text-gray-500">Type: ${fileType} | Size: ${formatFileSize(file.size)}</p>
+                        <p style="margin: 0; font-weight: 700;">${file.name}</p>
+                        <p style="margin: 0; font-size: 0.8rem; color: #666;">Type: ${fileType} | Size: ${formatFileSize(file.size)}</p>
                     </div>
                 </div>
-                <button onclick="removeFile(${index})" class="text-red-600 hover:text-red-800">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
+                <button onclick="removeFile(${index})" class="remove-btn">
+                    <i class="fas fa-times"></i> Remove
                 </button>
             `;
             fileList.appendChild(li);
         });
         
-        selectedFiles.classList.toggle('hidden', filesToUpload.length === 0);
+        selectedFiles.style.display = filesToUpload.length > 0 ? 'block' : 'none';
     }
     
     window.removeFile = function(index) {
@@ -405,7 +298,7 @@ document.addEventListener('DOMContentLoaded', function() {
     uploadAllBtn.addEventListener('click', async () => {
         if (filesToUpload.length === 0) return;
         
-        uploadProgress.classList.remove('hidden');
+        uploadProgress.style.display = 'block';
         progressItems.innerHTML = '';
         uploadAllBtn.disabled = true;
         
@@ -414,9 +307,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         uploadAllBtn.disabled = false;
+        filesToUpload = [];
+        displaySelectedFiles();
         
-        // Refresh upload history
+        // Refresh status and history
         setTimeout(() => {
+            loadUploadStatus();
             loadUploadHistory();
         }, 1000);
     });
@@ -430,14 +326,14 @@ document.addEventListener('DOMContentLoaded', function() {
         progressItem.className = 'progress-item';
         progressItem.id = progressId;
         progressItem.innerHTML = `
-            <div class="flex justify-between items-center mb-2">
-                <span class="text-sm font-medium">${file.name}</span>
-                <span class="text-xs text-gray-500">Detecting type...</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-weight: 700;">${file.name}</span>
+                <span style="font-size: 0.9rem; color: #666;">Detecting type...</span>
             </div>
             <div class="progress-bar">
                 <div class="progress-bar-fill" style="width: 0%"></div>
             </div>
-            <div class="mt-2 text-xs text-gray-600 status-message">Preparing upload...</div>
+            <div class="status-message">Preparing upload...</div>
         `;
         progressItems.appendChild(progressItem);
         
@@ -494,7 +390,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         details.push(`New products: ${result.new_products.join(', ')}`);
                     }
                     if (result.total_spend !== undefined) {
-                        details.push(`Total spend: £${result.total_spend.toFixed(2)}`);
+                        details.push(`Total spend: £${result.total_spend.toFixed(0)}`);
                     }
                     
                     if (details.length > 0) {
@@ -516,31 +412,100 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const progressBar = item.querySelector('.progress-bar-fill');
         const statusMsg = item.querySelector('.status-message');
-        const statusSpan = item.querySelector('.text-gray-500');
+        const statusSpan = item.querySelector('span:last-child');
         
         progressBar.style.width = `${percentage}%`;
         statusMsg.textContent = message;
+        statusMsg.className = `status-message ${status}`;
         
         if (status === 'success') {
-            progressBar.style.backgroundColor = '#10b981';
+            progressBar.style.backgroundColor = 'var(--primary-cyan)';
             statusSpan.textContent = 'Complete';
-            statusSpan.className = 'text-xs text-green-600';
+            statusSpan.style.color = 'var(--primary-cyan)';
         } else if (status === 'error') {
-            progressBar.style.backgroundColor = '#ef4444';
+            progressBar.style.backgroundColor = 'var(--primary-red)';
             statusSpan.textContent = 'Failed';
-            statusSpan.className = 'text-xs text-red-600';
+            statusSpan.style.color = 'var(--primary-red)';
         } else {
             statusSpan.textContent = 'Processing';
         }
     }
-    
-    // Load upload history
-    loadUploadHistory();
 });
 
-// Legacy upload functionality (kept for individual uploads)
-if (window.uploadModule) {
-    uploadModule.init();
+function loadUploadStatus() {
+    fetch('/api/upload/check-status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update counts
+                document.getElementById('app-count').textContent = data.data_counts.applications.toLocaleString();
+                document.getElementById('flg-count').textContent = data.data_counts.flg_data.toLocaleString();
+                document.getElementById('ad-count').textContent = data.data_counts.ad_spend.toLocaleString();
+                document.getElementById('mapping-count').textContent = data.data_counts.mappings.toLocaleString();
+                
+                // Update last upload times
+                if (data.latest_uploads.applications) {
+                    const date = new Date(data.latest_uploads.applications);
+                    document.getElementById('app-last-upload').textContent = date.toLocaleString('en-GB');
+                }
+                if (data.latest_uploads.flg_data) {
+                    const date = new Date(data.latest_uploads.flg_data);
+                    document.getElementById('flg-last-upload').textContent = date.toLocaleString('en-GB');
+                }
+                if (data.latest_uploads.ad_spend) {
+                    const date = new Date(data.latest_uploads.ad_spend);
+                    document.getElementById('ad-last-upload').textContent = date.toLocaleString('en-GB');
+                }
+            }
+        })
+        .catch(error => console.error('Error loading upload status:', error));
+}
+
+function loadUploadHistory() {
+    // This would call your existing upload history endpoint
+    // For now, using the check-status endpoint
+    fetch('/api/upload/check-status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.recent_uploads) {
+                displayUploadHistory(data.recent_uploads);
+            }
+        })
+        .catch(error => console.error('Error loading upload history:', error));
+}
+
+function displayUploadHistory(history) {
+    const tbody = document.getElementById('upload-history-tbody');
+    
+    if (!history || history.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center" style="padding: 24px; color: #666;">
+                    No upload history available
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    let html = '';
+    history.forEach(item => {
+        const statusIcon = item.status === 'success' ? 
+            '<i class="fas fa-check-circle" style="color: var(--primary-cyan);"></i>' : 
+            '<i class="fas fa-clock" style="color: #666;"></i>';
+        
+        html += `
+            <tr>
+                <td>${item.filename}</td>
+                <td>${item.type}</td>
+                <td>${item.timestamp}</td>
+                <td>${statusIcon} ${item.status}</td>
+                <td class="text-right">${item.records.toLocaleString()}</td>
+            </tr>
+        `;
+    });
+    
+    tbody.innerHTML = html;
 }
 </script>
 {% endblock %}

@@ -1,7 +1,7 @@
 """
 Marketing Analytics Platform
 Main Flask Application
-Version: 1.0
+Version: 1.8
 Last Updated: 31 July 2025
 """
 
@@ -140,6 +140,11 @@ def marketing_campaign():
     """Marketing campaign report page"""
     return render_template('marketing_campaign.html')
 
+@app.route('/product-category-analysis')
+def product_category_analysis():
+    """Product category analysis page"""
+    return render_template('product_category_analysis.html')
+
 @app.route('/admin')
 def admin_page():
     """Admin page for database initialization"""
@@ -160,7 +165,7 @@ def health_check():
         'status': 'ok' if db_status == 'healthy' else 'error',
         'timestamp': datetime.now().isoformat(),
         'database': db_status,
-        'version': '1.0'
+        'version': '1.8'
     })
 
 @app.route('/api/debug/db-info')

@@ -3,132 +3,107 @@
 {% block title %}Dashboard - Marketing Analytics Platform{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-    <!-- Page Header -->
-    <div class="bg-white shadow rounded-lg p-6">
-        <h2 class="text-2xl font-bold text-gray-900 mb-2">Dashboard Overview</h2>
-        <p class="text-gray-600">Real-time analytics and performance metrics</p>
+<!-- HERO -->
+<section class="hero">
+    <div class="info-box">
+        <h2>Marketing Analytics Dashboard</h2>
+        <p>Real-time insights into campaign performance, credit applications, and ROI metrics. Make data-driven decisions to optimize your marketing spend.</p>
     </div>
+</section>
 
-    <!-- Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="stat-card">
-            <div class="stat-icon bg-blue-100 text-blue-600">
-                <i class="fas fa-users"></i>
-            </div>
-            <div class="stat-content">
-                <h3 class="stat-title">Total Enquiries</h3>
-                <p class="stat-value" id="total-enquiries">-</p>
-                <p class="stat-change text-green-600">
-                    <i class="fas fa-arrow-up"></i>
-                    <span id="week-enquiries">-</span> this week
-                </p>
-            </div>
-        </div>
-
-        <div class="stat-card">
-            <div class="stat-icon bg-green-100 text-green-600">
-                <i class="fas fa-file-alt"></i>
-            </div>
-            <div class="stat-content">
-                <h3 class="stat-title">Applications</h3>
-                <p class="stat-value" id="total-applications">-</p>
-                <p class="stat-change text-green-600">
-                    <i class="fas fa-arrow-up"></i>
-                    <span id="week-applications">-</span> this week
-                </p>
-            </div>
-        </div>
-
-        <div class="stat-card">
-            <div class="stat-icon bg-purple-100 text-purple-600">
-                <i class="fas fa-percentage"></i>
-            </div>
-            <div class="stat-content">
-                <h3 class="stat-title">Approval Rate</h3>
-                <p class="stat-value" id="approval-rate">-</p>
-                <p class="stat-change text-gray-600">
-                    Overall average
-                </p>
-            </div>
-        </div>
-
-        <div class="stat-card">
-            <div class="stat-icon bg-yellow-100 text-yellow-600">
-                <i class="fas fa-pound-sign"></i>
-            </div>
-            <div class="stat-content">
-                <h3 class="stat-title">Weekly Spend</h3>
-                <p class="stat-value" id="week-spend">-</p>
-                <p class="stat-change text-gray-600">
-                    Marketing budget
-                </p>
-            </div>
+<!-- Summary Cards -->
+<div class="metrics-grid">
+    <div class="metric-card">
+        <div class="metric-label">Total Enquiries</div>
+        <div class="metric-value" id="total-enquiries">-</div>
+        <div style="color: var(--primary-cyan); font-size: 0.9rem;">
+            <i class="fas fa-arrow-up"></i>
+            <span id="week-enquiries">-</span> this week
         </div>
     </div>
 
-    <!-- Charts Section -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Weekly Trends Chart -->
-        <div class="bg-white shadow rounded-lg p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">Weekly Trends</h3>
-            <div style="position: relative; height: 300px;">
+    <div class="metric-card">
+        <div class="metric-label">Applications</div>
+        <div class="metric-value positive" id="total-applications">-</div>
+        <div style="color: var(--primary-cyan); font-size: 0.9rem;">
+            <i class="fas fa-arrow-up"></i>
+            <span id="week-applications">-</span> this week
+        </div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">Approval Rate</div>
+        <div class="metric-value" id="approval-rate">-</div>
+        <div style="color: #666; font-size: 0.9rem;">Overall average</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">Weekly Spend</div>
+        <div class="metric-value" id="week-spend">-</div>
+        <div style="color: #666; font-size: 0.9rem;">Marketing budget</div>
+    </div>
+</div>
+
+<!-- Charts Section -->
+<div class="card">
+    <h3>Performance Trends</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <div>
+            <h4>Weekly Trends</h4>
+            <div class="chart-container">
                 <canvas id="weekly-trends-chart"></canvas>
             </div>
         </div>
-
-        <!-- Product Performance Chart -->
-        <div class="bg-white shadow rounded-lg p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">Top Products by Applications</h3>
-            <div style="position: relative; height: 300px;">
+        <div>
+            <h4>Top Products by Applications</h4>
+            <div class="chart-container">
                 <canvas id="product-performance-chart"></canvas>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- Recent Activity -->
-    <div class="bg-white shadow rounded-lg p-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Upload Status</h3>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="upload-status-card">
-                <h4 class="font-medium text-gray-700">Applications Data</h4>
-                <p class="text-sm text-gray-500">Last upload: <span id="applications-last-upload">Not uploaded</span></p>
-                <p class="text-sm text-gray-500">Total records: <span id="applications-total">0</span></p>
-            </div>
-            <div class="upload-status-card">
-                <h4 class="font-medium text-gray-700">FLG Data</h4>
-                <p class="text-sm text-gray-500">Last upload: <span id="flg-last-upload">Not uploaded</span></p>
-                <p class="text-sm text-gray-500">Total records: <span id="flg-total">0</span></p>
-            </div>
-            <div class="upload-status-card">
-                <h4 class="font-medium text-gray-700">Ad Spend Data</h4>
-                <p class="text-sm text-gray-500">Last upload: <span id="adspend-last-upload">Not uploaded</span></p>
-                <p class="text-sm text-gray-500">Total records: <span id="adspend-total">0</span></p>
-            </div>
+<!-- Upload Status -->
+<div class="card">
+    <h3>Data Upload Status</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
+        <div style="background: #f9f9f9; padding: 16px; border-radius: 4px;">
+            <h4 style="margin: 0 0 8px; color: var(--primary-navy);">Applications Data</h4>
+            <p style="margin: 4px 0; font-size: 0.9rem;">Last upload: <span id="applications-last-upload" style="font-weight: 700;">Not uploaded</span></p>
+            <p style="margin: 4px 0; font-size: 0.9rem;">Total records: <span id="applications-total" style="font-weight: 700;">0</span></p>
+        </div>
+        <div style="background: #f9f9f9; padding: 16px; border-radius: 4px;">
+            <h4 style="margin: 0 0 8px; color: var(--primary-navy);">FLG Data</h4>
+            <p style="margin: 4px 0; font-size: 0.9rem;">Last upload: <span id="flg-last-upload" style="font-weight: 700;">Not uploaded</span></p>
+            <p style="margin: 4px 0; font-size: 0.9rem;">Total records: <span id="flg-total" style="font-weight: 700;">0</span></p>
+        </div>
+        <div style="background: #f9f9f9; padding: 16px; border-radius: 4px;">
+            <h4 style="margin: 0 0 8px; color: var(--primary-navy);">Ad Spend Data</h4>
+            <p style="margin: 4px 0; font-size: 0.9rem;">Last upload: <span id="adspend-last-upload" style="font-weight: 700;">Not uploaded</span></p>
+            <p style="margin: 4px 0; font-size: 0.9rem;">Total records: <span id="adspend-total" style="font-weight: 700;">0</span></p>
         </div>
     </div>
+</div>
 
-    <!-- Quick Actions -->
-    <div class="bg-white shadow rounded-lg p-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <a href="{{ url_for('upload_page') }}" class="quick-action-btn">
-                <i class="fas fa-upload text-2xl mb-2"></i>
-                <span>Upload Data</span>
-            </a>
-            <a href="{{ url_for('credit_performance') }}" class="quick-action-btn">
-                <i class="fas fa-chart-bar text-2xl mb-2"></i>
-                <span>View Credit Report</span>
-            </a>
-            <a href="{{ url_for('marketing_campaign') }}" class="quick-action-btn">
-                <i class="fas fa-bullhorn text-2xl mb-2"></i>
-                <span>Campaign Report</span>
-            </a>
-            <button class="quick-action-btn" onclick="exportAllReports()">
-                <i class="fas fa-download text-2xl mb-2"></i>
-                <span>Export All Reports</span>
-            </button>
-        </div>
+<!-- Quick Actions -->
+<div class="card">
+    <h3>Quick Actions</h3>
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; justify-content: center;">
+        <a href="{{ url_for('upload_page') }}" class="btn btn-success">
+            <i class="fas fa-upload"></i>Upload Data
+        </a>
+        <a href="{{ url_for('credit_performance') }}" class="btn">
+            <i class="fas fa-chart-bar"></i>View Credit Report
+        </a>
+        <a href="{{ url_for('marketing_campaign') }}" class="btn">
+            <i class="fas fa-bullhorn"></i>Campaign Report
+        </a>
+        <a href="/product-category-analysis" class="btn">
+            <i class="fas fa-chart-pie"></i>Product Category Analysis
+        </a>
+        <button class="btn btn-secondary" onclick="exportAllReports()">
+            <i class="fas fa-download"></i>Export All Reports
+        </button>
     </div>
 </div>
 {% endblock %}
@@ -152,7 +127,7 @@ function loadDashboardData() {
                 document.getElementById('total-applications').textContent = data.data.total_applications.toLocaleString();
                 document.getElementById('week-applications').textContent = data.data.week_applications.toLocaleString();
                 document.getElementById('approval-rate').textContent = (data.data.approval_rate * 100).toFixed(1) + '%';
-                document.getElementById('week-spend').textContent = '£' + data.data.week_spend.toLocaleString('en-GB', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                document.getElementById('week-spend').textContent = '£' + data.data.week_spend.toFixed(0);
             }
         })
         .catch(error => console.error('Error loading dashboard data:', error));
@@ -198,14 +173,14 @@ function initializeCharts() {
             datasets: [{
                 label: 'Enquiries',
                 data: [0, 0, 0, 0, 0, 0, 0],
-                borderColor: 'rgb(59, 130, 246)',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderColor: '#3BF7CA',
+                backgroundColor: 'rgba(59, 247, 202, 0.1)',
                 tension: 0.1
             }, {
                 label: 'Applications',
                 data: [0, 0, 0, 0, 0, 0, 0],
-                borderColor: 'rgb(16, 185, 129)',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                borderColor: '#18124C',
+                backgroundColor: 'rgba(24, 18, 76, 0.1)',
                 tension: 0.1
             }]
         },
@@ -230,13 +205,11 @@ function initializeCharts() {
     const productChart = new Chart(productCtx, {
         type: 'bar',
         data: {
-            labels: ['No Data Yet'],
+            labels: ['Loading...'],
             datasets: [{
                 label: 'Applications',
                 data: [0],
-                backgroundColor: [
-                    'rgba(59, 130, 246, 0.8)'
-                ]
+                backgroundColor: '#18124C'
             }]
         },
         options: {
@@ -257,8 +230,7 @@ function initializeCharts() {
 }
 
 function exportAllReports() {
-    // TODO: Implement export all reports functionality
-    alert('Export functionality coming soon!');
+    alert('Export functionality will be implemented in the next update.');
 }
 </script>
 {% endblock %}

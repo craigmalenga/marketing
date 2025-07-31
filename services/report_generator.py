@@ -423,6 +423,207 @@ class ReportGenerator:
             logger.error(f"Error exporting marketing campaign report: {e}")
             raise
     
+    def generate_product_category_analysis(self, start_date=None, end_date=None, campaign_type=None):
+        """Generate product category analysis by campaign"""
+        try:
+            # Base query joining FLG data with campaigns
+            query = db.session.query(
+                FLGData.campaign_name,
+                FLGData.product_name,
+                func.count(distinct(FLGData.reference)).label('enquiry_count')
+            ).join(
+                Product,
+                FLGData.product_name == Product.name,
+                isouter=True
+            )
+            
+            # Apply filters
+            if start_date:
+                query = query.filter(FLGData.received_datetime >= start_date)
+            if end_date:
+                query = query.filter(FLGData.received_datetime <= end_date)
+            
+            # Group by campaign and product
+            query = query.group_by(FLGData.campaign_name, FLGData.product_name)
+            results = query.all()
+            
+            # Process results into campaign categories
+            campaign_data = {}
+            for campaign_name, product_name, count in results:
+                if not campaign_name:
+                    continue
+                    
+                # Determine campaign category
+                campaign_category = self._categorize_campaign(campaign_name, campaign_type)
+                if campaign_type and campaign_category != campaign_type:
+                    continue
+                    
+                if campaign_category not in campaign_data:
+                    campaign_data[campaign_category] = {
+                        'total': 0,
+                        'products': {},
+                        'campaigns': set()
+                    }
+                
+                campaign_data[campaign_category]['total'] += count
+                campaign_data[campaign_category]['campaigns'].add(campaign_name)
+                
+                if product_name:
+                    product_category = self._get_product_category(product_name)
+                    if product_category not in campaign_data[campaign_category]['products']:
+                        campaign_data[campaign_category]['products'][product_category] = 0
+                    campaign_data[campaign_category]['products'][product_category] += count
+            
+            # Generate summary
+            summary = []
+            for category, data in campaign_data.items():
+                row = {
+                    'category': category,
+                    'totalEnquiries': data['total'],
+                    'tv': data['products'].get('Electronics', 0),
+                    'sofas': data['products'].get('Sofa', 0),
+                    'appliances': data['products'].get('Appliances', 0),
+                    'electronics': data['products'].get('Electronics', 0),
+                    'furniture': data['products'].get('Furniture', 0),
+                    'other': data['products'].get('Other', 0)
+                }
+                
+                # Calculate percentages
+                if row['totalEnquiries'] > 0:
+                    row['tvPct'] = round((row['tv'] / row['totalEnquiries']) * 100, 1)
+                    row['sofasPct'] = round((row['sofas'] / row['totalEnquiries']) * 100, 1)
+                    row['appliancesPct'] = round((row['appliances'] / row['totalEnquiries']) * 100, 1)
+                    row['electronicsPct'] = round((row['electronics'] / row['totalEnquiries']) * 100, 1)
+                    row['furniturePct'] = round((row['furniture'] / row['totalEnquiries']) * 100, 1)
+                    row['otherPct'] = round((row['other'] / row['totalEnquiries']) * 100, 1)
+                else:
+                    row['tvPct'] = row['sofasPct'] = row['appliancesPct'] = 0
+                    row['electronicsPct'] = row['furniturePct'] = row['otherPct'] = 0
+                
+                summary.append(row)
+            
+            # Generate detailed breakdown
+            detailed = []
+            for campaign_name in set(c for d in campaign_data.values() for c in d['campaigns']):
+                # Get products for this specific campaign
+                campaign_products = {}
+                campaign_total = 0
+                
+                for cn, pn, count in results:
+                    if cn == campaign_name:
+                        if pn:
+                            campaign_products[pn] = count
+                            campaign_total += count
+                
+                if campaign_total > 0:
+                    # Find top 2 products
+                    sorted_products = sorted(campaign_products.items(), key=lambda x: x[1], reverse=True)
+                    primary = sorted_products[0] if sorted_products else ('None', 0)
+                    secondary = sorted_products[1] if len(sorted_products) > 1 else ('None', 0)
+                    
+                    detailed.append({
+                        'campaignName': campaign_name,
+                        'totalEnquiries': campaign_total,
+                        'primaryProduct': primary[0],
+                        'primaryPct': round((primary[1] / campaign_total) * 100, 1),
+                        'secondaryProduct': secondary[0],
+                        'secondaryPct': round((secondary[1] / campaign_total) * 100, 1),
+                        'productMixRatio': f"{len(campaign_products)} products"
+                    })
+            
+            # Generate chart data
+            chartData = {
+                'distribution': {
+                    'labels': [row['category'] for row in summary],
+                    'datasets': [
+                        {
+                            'label': 'TV',
+                            'data': [row['tv'] for row in summary],
+                            'backgroundColor': '#18124C'
+                        },
+                        {
+                            'label': 'Sofas',
+                            'data': [row['sofas'] for row in summary],
+                            'backgroundColor': '#3BF7CA'
+                        },
+                        {
+                            'label': 'Appliances',
+                            'data': [row['appliances'] for row in summary],
+                            'backgroundColor': '#E97132'
+                        },
+                        {
+                            'label': 'Other',
+                            'data': [row['other'] for row in summary],
+                            'backgroundColor': '#A02B93'
+                        }
+                    ]
+                },
+                'effectiveness': {
+                    'labels': ['TV', 'Sofas', 'Appliances', 'Electronics', 'Furniture'],
+                    'datasets': [{
+                        'label': 'Product Mix %',
+                        'data': [20, 30, 25, 15, 10],  # Example data
+                        'backgroundColor': 'rgba(59, 247, 202, 0.2)',
+                        'borderColor': '#3BF7CA',
+                        'pointBackgroundColor': '#3BF7CA'
+                    }]
+                }
+            }
+            
+            # Generate insights
+            insights = []
+            
+            # Find best performing campaign category
+            if summary:
+                best_category = max(summary, key=lambda x: x['totalEnquiries'])
+                insights.append({
+                    'title': 'Top Campaign Category',
+                    'description': f'{best_category["category"]} campaigns generate the most enquiries',
+                    'value': f'{best_category["totalEnquiries"]:,} total enquiries'
+                })
+            
+            # Find most diverse campaign
+            if detailed:
+                most_diverse = max(detailed, key=lambda x: int(x['productMixRatio'].split()[0]))
+                insights.append({
+                    'title': 'Most Diverse Campaign',
+                    'description': f'{most_diverse["campaignName"]} attracts the widest product range',
+                    'value': most_diverse['productMixRatio']
+                })
+            
+            return {
+                'summary': summary,
+                'detailed': sorted(detailed, key=lambda x: x['totalEnquiries'], reverse=True),
+                'chartData': chartData,
+                'insights': insights
+            }
+            
+        except Exception as e:
+            logger.error(f"Error generating product category analysis: {e}")
+            raise
+
+    def _categorize_campaign(self, campaign_name):
+        """Categorize campaign based on name patterns"""
+        if not campaign_name:
+            return 'Unknown'
+        
+        name_lower = campaign_name.lower()
+        
+        if 'tv' in name_lower or 'television' in name_lower:
+            return 'TV'
+        elif 'sofa' in name_lower or 'furniture' in name_lower:
+            return 'Sofa'
+        elif 'appliance' in name_lower or 'kitchen' in name_lower:
+            return 'Appliance'
+        else:
+            return 'General'
+
+    def _get_product_category(self, product_name):
+        """Get product category from product name"""
+        product = Product.query.filter_by(name=product_name).first()
+        return product.category if product else 'Other'
+
+    
     def get_summary_statistics(self):
         """Get summary statistics for dashboard"""
         try:

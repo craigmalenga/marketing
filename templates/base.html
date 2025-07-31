@@ -5,8 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Marketing Analytics Platform{% endblock %}</title>
     
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Force no-cache -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    
+    <!-- Favicons -->
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}" />
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32x32.png') }}" />
+    <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon-32x32.png') }}" />
     
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -19,62 +26,41 @@
     
     {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-gray-50">
-    <!-- Navigation -->
-    <nav class="bg-white shadow-lg">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex">
-                    <div class="flex-shrink-0 flex items-center">
-                        <h1 class="text-xl font-bold text-gray-800">
-                            <i class="fas fa-chart-line text-blue-600 mr-2"></i>
-                            Marketing Analytics
-                        </h1>
-                    </div>
-                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
-                        <a href="{{ url_for('index') }}" 
-                           class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
-                            Dashboard
-                        </a>
-                        <a href="{{ url_for('upload_page') }}" 
-                           class="nav-link {% if request.endpoint == 'upload_page' %}active{% endif %}">
-                            Upload Data
-                        </a>
-                        <a href="{{ url_for('credit_performance') }}" 
-                           class="nav-link {% if request.endpoint == 'credit_performance' %}active{% endif %}">
-                            Credit Performance
-                        </a>
-                        <a href="{{ url_for('marketing_campaign') }}" 
-                           class="nav-link {% if request.endpoint == 'marketing_campaign' %}active{% endif %}">
-                            Marketing Campaign
-                        </a>
-                    </div>
-                </div>
-                <div class="flex items-center">
-                    <button id="status-mapping-btn" class="btn-secondary text-sm">
-                        <i class="fas fa-cogs mr-2"></i>Status Mappings
-                    </button>
-                </div>
+<body>
+    <!-- HEADER -->
+    <header>
+        <div class="top-header">
+            <img src="{{ url_for('static', filename='img/store_logo.png') }}" alt="Marketing Analytics" />
+            <div class="nav-links">
+                <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
+                    Dashboard
+                </a>
+                <a href="{{ url_for('upload_page') }}" class="nav-link {% if request.endpoint == 'upload_page' %}active{% endif %}">
+                    Upload Data
+                </a>
+                <a href="{{ url_for('credit_performance') }}" class="nav-link {% if request.endpoint == 'credit_performance' %}active{% endif %}">
+                    Credit Performance
+                </a>
+                <a href="{{ url_for('marketing_campaign') }}" class="nav-link {% if request.endpoint == 'marketing_campaign' %}active{% endif %}">
+                    Marketing Campaign
+                </a>
+                <button id="status-mapping-btn" class="btn btn-secondary">
+                    <i class="fas fa-cogs"></i>Status Mappings
+                </button>
             </div>
         </div>
-    </nav>
-
-    <!-- Mobile menu -->
-    <div class="sm:hidden" id="mobile-menu">
-        <div class="pt-2 pb-3 space-y-1">
-            <a href="{{ url_for('index') }}" class="mobile-nav-link">Dashboard</a>
-            <a href="{{ url_for('upload_page') }}" class="mobile-nav-link">Upload Data</a>
-            <a href="{{ url_for('credit_performance') }}" class="mobile-nav-link">Credit Performance</a>
-            <a href="{{ url_for('marketing_campaign') }}" class="mobile-nav-link">Marketing Campaign</a>
+        <div class="top-bar">
+            <div class="title">Marketing Analytics Platform</div>
         </div>
-    </div>
+    </header>
 
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- MAIN CONTENT -->
+    <main>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} mb-4">
+                    <div class="alert alert-{{ category }}">
+                        <i class="fas fa-{% if category == 'success' %}check-circle{% elif category == 'error' %}exclamation-circle{% elif category == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
                         {{ message }}
                     </div>
                 {% endfor %}
@@ -84,37 +70,57 @@
         {% block content %}{% endblock %}
     </main>
 
+    <!-- FOOTER -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-left">
+                <img src="{{ url_for('static', filename='img/store_logo.png') }}" alt="Marketing Analytics" />
+                <p>Marketing Analytics Platform</p>
+                <p>Advanced reporting and data analysis for marketing performance</p>
+                <p>&copy; 2025 Marketing Analytics Platform. All rights reserved.</p>
+            </div>
+            <div class="footer-contact">
+                <p>
+                    <img src="{{ url_for('static', filename='img/phone.png') }}" class="icon" alt="Phone" />
+                    Support: 0800 123 4567
+                </p>
+                <p>
+                    <img src="{{ url_for('static', filename='img/mail.png') }}" class="icon" alt="Mail" />
+                    analytics@marketing.com
+                </p>
+                <p>
+                    <img src="{{ url_for('static', filename='img/map.png') }}" class="icon" alt="Map" />
+                    <a href="#" target="_blank">View locations</a>
+                </p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            Powered by Advanced Analytics Solutions
+        </div>
+    </footer>
+
     <!-- Status Mapping Modal -->
     <div id="status-mapping-modal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="text-xl font-bold">Status Variant Mappings</h3>
+                <h3>Status Variant Mappings</h3>
                 <button class="modal-close">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="mb-4">
-                    <button id="add-status-btn" class="btn-primary btn-sm">
-                        <i class="fas fa-plus mr-2"></i>Add New Status
+                <div style="margin-bottom: 16px;">
+                    <button id="add-status-btn" class="btn btn-success">
+                        <i class="fas fa-plus"></i>Add New Status
                     </button>
-                    <button id="initialize-defaults-btn" class="btn-secondary btn-sm ml-2">
-                        <i class="fas fa-sync mr-2"></i>Initialize Defaults
+                    <button id="initialize-defaults-btn" class="btn">
+                        <i class="fas fa-sync"></i>Initialize Defaults
                     </button>
                 </div>
-                <div id="status-mappings-list" class="overflow-x-auto">
+                <div id="status-mappings-list" class="table-container">
                     <!-- Status mappings will be loaded here -->
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Footer -->
-    <footer class="bg-white mt-12">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <p class="text-center text-sm text-gray-500">
-                &copy; 2025 Marketing Analytics Platform. All rights reserved.
-            </p>
-        </div>
-    </footer>
 
     <!-- Base JavaScript -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>

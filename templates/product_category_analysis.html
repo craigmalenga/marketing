@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+
+{% block title %}Product Category Analysis - Marketing Analytics Platform{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="page-header">
+        <div>
+            <h2>Product Category Analysis by Campaign</h2>
+            <p style="color: #666; margin: 0;">See what product mix each campaign category produces</p>
+        </div>
+        <button id="export-analysis-btn" class="btn">
+            <i class="fas fa-download"></i>Export to Excel
+        </button>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card">
+    <h3>Filters</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+        <div class="form-group">
+            <label>Start Date</label>
+            <input type="date" id="start-date" class="form-input" value="">
+        </div>
+        <div class="form-group">
+            <label>End Date</label>
+            <input type="date" id="end-date" class="form-input" value="">
+        </div>
+        <div class="form-group">
+            <label>Campaign Type</label>
+            <select id="campaign-type" class="form-select">
+                <option value="">All Campaign Types</option>
+                <option value="TV">TV Campaigns</option>
+                <option value="Sofa">Sofa Campaigns</option>
+                <option value="Appliance">Appliance Campaigns</option>
+                <option value="General">General Campaigns</option>
+            </select>
+        </div>
+    </div>
+    <div style="margin-top: 16px;">
+        <button id="apply-filters-btn" class="btn">
+            <i class="fas fa-filter"></i>Apply Filters
+        </button>
+        <button id="reset-filters-btn" class="btn btn-secondary">
+            <i class="fas fa-undo"></i>Reset
+        </button>
+    </div>
+</div>
+
+<!-- Summary View -->
+<div class="card">
+    <h3>Campaign Category Summary</h3>
+    <div class="table-container">
+        <table class="data-table" id="category-summary-table">
+            <thead>
+                <tr>
+                    <th>Campaign Category</th>
+                    <th class="text-right">Total Enquiries</th>
+                    <th class="text-right">TV</th>
+                    <th class="text-right">Sofas</th>
+                    <th class="text-right">Appliances</th>
+                    <th class="text-right">Electronics</th>
+                    <th class="text-right">Furniture</th>
+                    <th class="text-right">Other</th>
+                </tr>
+            </thead>
+            <tbody id="category-summary-tbody">
+                <!-- Data will be populated here -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Detailed Breakdown -->
+<div class="card">
+    <h3>Detailed Product Breakdown by Campaign</h3>
+    <div class="table-container">
+        <table class="data-table" id="detailed-breakdown-table">
+            <thead>
+                <tr>
+                    <th>Campaign Name</th>
+                    <th class="text-right">Total Enquiries</th>
+                    <th class="text-right">Primary Product</th>
+                    <th class="text-right">Primary %</th>
+                    <th class="text-right">Secondary Product</th>
+                    <th class="text-right">Secondary %</th>
+                    <th class="text-right">Product Mix Ratio</th>
+                </tr>
+            </thead>
+            <tbody id="detailed-breakdown-tbody">
+                <!-- Data will be populated here -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Visual Analysis -->
+<div class="card">
+    <h3>Product Mix Visualization</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <div>
+            <h4>Product Distribution by Campaign Type</h4>
+            <div class="chart-container">
+                <canvas id="product-distribution-chart"></canvas>
+            </div>
+        </div>
+        <div>
+            <h4>Campaign Effectiveness by Product</h4>
+            <div class="chart-container">
+                <canvas id="campaign-effectiveness-chart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Key Insights -->
+<div class="card">
+    <h3>Key Insights</h3>
+    <div id="insights-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+        <!-- Insights will be populated here -->
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Set default date range (last 30 days)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+    
+    document.getElementById('start-date').value = startDate.toISOString().split('T')[0];
+    document.getElementById('end-date').value = endDate.toISOString().split('T')[0];
+    
+    // Load the analysis
+    loadProductCategoryAnalysis();
+    
+    // Event listeners
+    document.getElementById('apply-filters-btn').addEventListener('click', loadProductCategoryAnalysis);
+    document.getElementById('reset-filters-btn').addEventListener('click', resetFilters);
+    document.getElementById('export-analysis-btn').addEventListener('click', exportAnalysis);
+});
+
+function loadProductCategoryAnalysis() {
+    const params = new URLSearchParams({
+        start_date: document.getElementById('start-date').value,
+        end_date: document.getElementById('end-date').value,
+        campaign_type: document.getElementById('campaign-type').value
+    });
+    
+    fetch(`/api/reports/product-category-analysis?${params}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayCategorySummary(data.summary);
+                displayDetailedBreakdown(data.detailed);
+                initializeCharts(data.chartData);
+                displayInsights(data.insights);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading analysis:', error);
+            showAlert('Error loading product category analysis', 'error');
+        });
+}
+
+function displayCategorySummary(summary) {
+    const tbody = document.getElementById('category-summary-tbody');
+    let html = '';
+    
+    summary.forEach(row => {
+        html += `
+            <tr>
+                <td><strong>${row.category}</strong></td>
+                <td class="text-right">${row.totalEnquiries.toLocaleString()}</td>
+                <td class="text-right">${row.tv.toLocaleString()} (${row.tvPct}%)</td>
+                <td class="text-right">${row.sofas.toLocaleString()} (${row.sofasPct}%)</td>
+                <td class="text-right">${row.appliances.toLocaleString()} (${row.appliancesPct}%)</td>
+                <td class="text-right">${row.electronics.toLocaleString()} (${row.electronicsPct}%)</td>
+                <td class="text-right">${row.furniture.toLocaleString()} (${row.furniturePct}%)</td>
+                <td class="text-right">${row.other.toLocaleString()} (${row.otherPct}%)</td>
+            </tr>
+        `;
+    });
+    
+    tbody.innerHTML = html;
+}
+
+function displayDetailedBreakdown(detailed) {
+    const tbody = document.getElementById('detailed-breakdown-tbody');
+    let html = '';
+    
+    detailed.forEach(row => {
+        html += `
+            <tr>
+                <td>${row.campaignName}</td>
+                <td class="text-right">${row.totalEnquiries.toLocaleString()}</td>
+                <td class="text-right">${row.primaryProduct}</td>
+                <td class="text-right">${row.primaryPct}%</td>
+                <td class="text-right">${row.secondaryProduct}</td>
+                <td class="text-right">${row.secondaryPct}%</td>
+                <td class="text-right">${row.productMixRatio}</td>
+            </tr>
+        `;
+    });
+    
+    tbody.innerHTML = html;
+}
+
+function initializeCharts(chartData) {
+    // Product Distribution Chart
+    const distCtx = document.getElementById('product-distribution-chart').getContext('2d');
+    new Chart(distCtx, {
+        type: 'bar',
+        data: {
+            labels: chartData.distribution.labels,
+            datasets: chartData.distribution.datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { stacked: true },
+                y: { stacked: true, beginAtZero: true }
+            },
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.dataset.label || '';
+                            const value = context.parsed.y;
+                            const total = context.parsed._stacks.y[0];
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${label}: ${value} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+    
+    // Campaign Effectiveness Chart
+    const effCtx = document.getElementById('campaign-effectiveness-chart').getContext('2d');
+    new Chart(effCtx, {
+        type: 'radar',
+        data: chartData.effectiveness,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                r: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+}
+
+function displayInsights(insights) {
+    const container = document.getElementById('insights-container');
+    let html = '';
+    
+    insights.forEach(insight => {
+        html += `
+            <div style="background: #f9f9f9; padding: 16px; border-radius: 8px; border-left: 4px solid var(--primary-cyan);">
+                <h4 style="margin: 0 0 8px; color: var(--primary-navy);">${insight.title}</h4>
+                <p style="margin: 0; color: #666;">${insight.description}</p>
+                <p style="margin: 8px 0 0; font-weight: 700; color: var(--primary-navy);">${insight.value}</p>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function resetFilters() {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+    
+    document.getElementById('start-date').value = startDate.toISOString().split('T')[0];
+    document.getElementById('end-date').value = endDate.toISOString().split('T')[0];
+    document.getElementById('campaign-type').value = '';
+    
+    loadProductCategoryAnalysis();
+}
+
+function exportAnalysis() {
+    const params = {
+        start_date: document.getElementById('start-date').value,
+        end_date: document.getElementById('end-date').value,
+        campaign_type: document.getElementById('campaign-type').value
+    };
+    
+    fetch('/api/reports/export/product-category-analysis', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(params)
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.blob();
+        }
+        throw new Error('Export failed');
+    })
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `product_category_analysis_${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        showAlert('Analysis exported successfully', 'success');
+    })
+    .catch(error => {
+        console.error('Error exporting analysis:', error);
+        showAlert('Error exporting analysis', 'error');
+    });
+}
+
+function showAlert(message, type) {
+    // This function should be available from app.js
+    if (window.showAlert) {
+        window.showAlert(message, type);
+    } else {
+        alert(message);
+    }
+}
+</script>
+{% endblock %}

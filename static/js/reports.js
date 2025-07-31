@@ -1,5 +1,5 @@
 /**
- * Report functionality
+ * Report functionality with updated formatting
  */
 
 // Credit Performance Report functions
@@ -31,7 +31,7 @@ function loadCreditPerformanceReport() {
     const tbody = document.getElementById('credit-performance-tbody');
     const tfoot = document.getElementById('credit-performance-tfoot');
     
-    loadingDiv.classList.remove('hidden');
+    loadingDiv.style.display = 'block';
     tbody.innerHTML = '';
     tfoot.innerHTML = '';
     
@@ -45,7 +45,7 @@ function loadCreditPerformanceReport() {
     fetch(`/api/reports/credit-performance?${params}`)
         .then(response => response.json())
         .then(data => {
-            loadingDiv.classList.add('hidden');
+            loadingDiv.style.display = 'none';
             
             if (data.success) {
                 displayCreditPerformanceReport(data.data);
@@ -55,7 +55,7 @@ function loadCreditPerformanceReport() {
             }
         })
         .catch(error => {
-            loadingDiv.classList.add('hidden');
+            loadingDiv.style.display = 'none';
             console.error('Error loading report:', error);
             showAlert('Error loading report', 'error');
         });
@@ -65,22 +65,43 @@ function displayCreditPerformanceReport(data) {
     const tbody = document.getElementById('credit-performance-tbody');
     const tfoot = document.getElementById('credit-performance-tfoot');
     
+    // Sort rows by Av Credit Issued Per Enquiry (descending), then by Average Value Credit Applied (descending)
+    const sortedRows = [...data.rows].sort((a, b) => {
+        const diffPerEnquiry = b.average_credit_issued_per_enquiry - a.average_credit_issued_per_enquiry;
+        if (diffPerEnquiry !== 0) return diffPerEnquiry;
+        return b.average_value_credit_applied - a.average_value_credit_applied;
+    });
+    
+    // Calculate min/max for heatmap columns
+    const avgCreditValues = sortedRows.map(r => r.average_value_credit_applied).filter(v => v > 0);
+    const avgPerEnquiryValues = sortedRows.map(r => r.average_credit_issued_per_enquiry).filter(v => v > 0);
+    
+    const avgCreditMin = Math.min(...avgCreditValues);
+    const avgCreditMax = Math.max(...avgCreditValues);
+    const avgPerEnquiryMin = Math.min(...avgPerEnquiryValues);
+    const avgPerEnquiryMax = Math.max(...avgPerEnquiryValues);
+    
     // Display rows
     let html = '';
-    data.rows.forEach(row => {
+    sortedRows.forEach(row => {
+        const avgCreditClass = row.average_value_credit_applied > 0 ? 
+            getHeatmapClass(row.average_value_credit_applied, avgCreditMin, avgCreditMax) : '';
+        const avgPerEnquiryClass = row.average_credit_issued_per_enquiry > 0 ? 
+            getHeatmapClass(row.average_credit_issued_per_enquiry, avgPerEnquiryMin, avgPerEnquiryMax) : '';
+        
         html += `
             <tr>
                 <td>${row.product}</td>
                 <td class="text-right">${formatNumber(row.number)}</td>
-                <td class="text-right">${formatCurrency(row.average_value_credit_applied)}</td>
-                <td class="text-right">${formatCurrency(row.combined_enquiry_credit_value)}</td>
-                <td class="text-right">${formatCurrency(row.credit_for_applications)}</td>
+                <td class="text-right ${avgCreditClass}">£${formatNumber(row.average_value_credit_applied)}</td>
+                <td class="text-right">£${formatNumber(row.combined_enquiry_credit_value)}</td>
+                <td class="text-right">£${formatNumber(row.credit_for_applications)}</td>
                 <td class="text-right">${formatPercentage(row.pull_through_rate)}</td>
-                <td class="text-right">${formatCurrency(row.credit_for_processed_applications)}</td>
+                <td class="text-right">£${formatNumber(row.credit_for_processed_applications)}</td>
                 <td class="text-right">${formatPercentage(row.percent_applications_processed)}</td>
-                <td class="text-right">${formatCurrency(row.credit_issued_for_approved_applications)}</td>
+                <td class="text-right">£${formatNumber(row.credit_issued_for_approved_applications)}</td>
                 <td class="text-right">${formatPercentage(row.percent_processed_applications_issued)}</td>
-                <td class="text-right">${formatCurrency(row.average_credit_issued_per_enquiry)}</td>
+                <td class="text-right ${avgPerEnquiryClass}">£${formatNumber(row.average_credit_issued_per_enquiry)}</td>
             </tr>
         `;
     });
@@ -89,18 +110,18 @@ function displayCreditPerformanceReport(data) {
     // Display totals
     if (data.totals) {
         tfoot.innerHTML = `
-            <tr class="font-bold bg-gray-100">
+            <tr style="font-weight: 700; background: #f3f3f3;">
                 <td>${data.totals.product}</td>
                 <td class="text-right">${formatNumber(data.totals.number)}</td>
-                <td class="text-right">${formatCurrency(data.totals.average_value_credit_applied)}</td>
-                <td class="text-right">${formatCurrency(data.totals.combined_enquiry_credit_value)}</td>
-                <td class="text-right">${formatCurrency(data.totals.credit_for_applications)}</td>
+                <td class="text-right">£${formatNumber(data.totals.average_value_credit_applied)}</td>
+                <td class="text-right">£${formatNumber(data.totals.combined_enquiry_credit_value)}</td>
+                <td class="text-right">£${formatNumber(data.totals.credit_for_applications)}</td>
                 <td class="text-right">${formatPercentage(data.totals.pull_through_rate)}</td>
-                <td class="text-right">${formatCurrency(data.totals.credit_for_processed_applications)}</td>
+                <td class="text-right">£${formatNumber(data.totals.credit_for_processed_applications)}</td>
                 <td class="text-right">${formatPercentage(data.totals.percent_applications_processed)}</td>
-                <td class="text-right">${formatCurrency(data.totals.credit_issued_for_approved_applications)}</td>
+                <td class="text-right">£${formatNumber(data.totals.credit_issued_for_approved_applications)}</td>
                 <td class="text-right">${formatPercentage(data.totals.percent_processed_applications_issued)}</td>
-                <td class="text-right">${formatCurrency(data.totals.average_credit_issued_per_enquiry)}</td>
+                <td class="text-right">£${formatNumber(data.totals.average_credit_issued_per_enquiry)}</td>
             </tr>
         `;
     }
@@ -234,30 +255,30 @@ function loadMarketingCampaignReport() {
 }
 
 function displayMarketingCampaignReport(data) {
-    // Update summary metrics
-    document.getElementById('marketing-cost').textContent = formatCurrency(data.summary.marketing_cost);
-    document.getElementById('cost-per-enquiry').textContent = formatCurrency(data.summary.cost_per_enquiry);
-    document.getElementById('cost-per-application').textContent = formatCurrency(data.summary.cost_per_application);
-    document.getElementById('cost-per-approved').textContent = formatCurrency(data.summary.cost_per_approved_loan);
+    // Update summary metrics - NO PENNIES
+    document.getElementById('marketing-cost').textContent = '£' + formatNumber(data.summary.marketing_cost);
+    document.getElementById('cost-per-enquiry').textContent = '£' + formatNumber(data.summary.cost_per_enquiry);
+    document.getElementById('cost-per-application').textContent = '£' + formatNumber(data.summary.cost_per_application);
+    document.getElementById('cost-per-approved').textContent = '£' + formatNumber(data.summary.cost_per_approved_loan);
     document.getElementById('approval-rate').textContent = formatPercentage(data.summary.approval_rate);
-    document.getElementById('credit-issued').textContent = formatCurrency(data.summary.sum_of_credit_issued);
-    document.getElementById('credit-per-pound').textContent = formatCurrency(data.summary.credit_per_pound_spent);
-    document.getElementById('gm-return').textContent = formatCurrency(data.summary.gross_margin_return_per_pound_spent);
+    document.getElementById('credit-issued').textContent = '£' + formatNumber(data.summary.sum_of_credit_issued);
+    document.getElementById('credit-per-pound').textContent = '£' + data.summary.credit_per_pound_spent.toFixed(2);
+    document.getElementById('gm-return').textContent = '£' + data.summary.gross_margin_return_per_pound_spent.toFixed(2);
     
-    // Update status breakdown table
+    // Update status breakdown table - NO PENNIES IN VALUES
     const tbody = document.getElementById('status-breakdown-tbody');
     let html = '';
     
     data.status_breakdown.forEach(status => {
         html += `
             <tr>
-                <td class="text-sm">${status.status}</td>
+                <td>${status.status}</td>
                 <td class="text-center">${status.is_application_received}</td>
                 <td class="text-center">${status.is_application_processed}</td>
                 <td class="text-center">${status.is_application_approved}</td>
                 <td class="text-center">${status.is_future}</td>
                 <td class="text-right">${formatNumber(status.count)}</td>
-                <td class="text-right">${formatCurrency(status.value)}</td>
+                <td class="text-right">£${formatNumber(status.value)}</td>
             </tr>
         `;
     });
@@ -270,8 +291,8 @@ function displayMarketingCampaignReport(data) {
     document.getElementById('total-processed').textContent = formatNumber(data.counts.processed);
     document.getElementById('total-approved').textContent = formatNumber(data.counts.approved);
     
-    document.getElementById('avg-credit-approved').textContent = formatCurrency(data.summary.average_credit_issued_per_successful_app);
-    document.getElementById('expected-gm').textContent = formatCurrency(data.summary.expected_gross_margin_per_pound_spent);
+    document.getElementById('avg-credit-approved').textContent = '£' + formatNumber(data.summary.average_credit_issued_per_successful_app);
+    document.getElementById('expected-gm').textContent = '£' + data.summary.expected_gross_margin_per_pound_spent.toFixed(2);
     
     const processingEfficiency = data.counts.applications > 0 ? data.counts.processed / data.counts.applications : 0;
     document.getElementById('processing-efficiency').textContent = formatPercentage(processingEfficiency);
@@ -302,10 +323,10 @@ function initializeMarketingCharts(data) {
                     data.counts.approved
                 ],
                 backgroundColor: [
-                    'rgba(59, 130, 246, 0.8)',
-                    'rgba(34, 197, 94, 0.8)',
-                    'rgba(251, 191, 36, 0.8)',
-                    'rgba(168, 85, 247, 0.8)'
+                    '#3BF7CA',
+                    '#18124C',
+                    '#E97132',
+                    '#A02B93'
                 ]
             }]
         },
@@ -343,8 +364,8 @@ function initializeMarketingCharts(data) {
                     data.summary.sum_of_credit_issued
                 ],
                 backgroundColor: [
-                    'rgba(239, 68, 68, 0.8)',
-                    'rgba(34, 197, 94, 0.8)'
+                    '#FF595E',
+                    '#3BF7CA'
                 ]
             }]
         },
@@ -358,7 +379,7 @@ function initializeMarketingCharts(data) {
                 tooltip: {
                     callbacks: {
                         label: function(context) {
-                            return context.label + ': ' + formatCurrency(context.parsed);
+                            return context.label + ': £' + formatNumber(context.parsed);
                         }
                     }
                 }
@@ -418,4 +439,23 @@ function exportMarketingCampaignReport() {
         console.error('Error exporting report:', error);
         showAlert('Error exporting report', 'error');
     });
+}
+
+// Utility functions (overriding defaults to remove pennies where needed)
+function formatNumber(value, decimals = 0) {
+    if (value === null || value === undefined) return '0';
+    return new Intl.NumberFormat('en-GB', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    }).format(Math.round(value));
+}
+
+function formatCurrency(value) {
+    if (value === null || value === undefined) return '£0';
+    return '£' + formatNumber(value);
+}
+
+function formatPercentage(value, decimals = 1) {
+    if (value === null || value === undefined) return '0%';
+    return (value * 100).toFixed(decimals) + '%';
 }
