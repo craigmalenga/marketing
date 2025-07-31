@@ -459,3 +459,19 @@ function formatPercentage(value, decimals = 1) {
     if (value === null || value === undefined) return '0%';
     return (value * 100).toFixed(decimals) + '%';
 }
+
+function getHeatmapClass(value, min, max) {
+    /**
+     * Get heatmap class based on value position between min and max
+     * Returns heatmap-1 (lowest/red) through heatmap-10 (highest/green)
+     */
+    if (value === null || value === undefined || max === min) return '';
+    
+    // Calculate position between 0 and 1
+    const position = (value - min) / (max - min);
+    
+    // Convert to 1-10 scale
+    const classNum = Math.max(1, Math.min(10, Math.ceil(position * 10)));
+    
+    return `heatmap-${classNum}`;
+}

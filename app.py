@@ -12,7 +12,7 @@ from flask import Flask, render_template, jsonify, request, send_file
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
-from sqlalchemy import func, text, inspect
+from sqlalchemy import func, text, inspect, distinct
 from config import Config
 
 # Initialize Flask app
@@ -531,7 +531,7 @@ def debug_database_check():
 
 @app.route('/api/debug/ad-spend-details')
 def debug_ad_spend_details():
-    """Debug endpoint to check ad spend details"""
+    """Debug endpoint to check ad spend details - FIXED with distinct import"""
     try:
         # Get ad spend by campaign
         campaign_spending = db.session.query(
@@ -550,12 +550,15 @@ def debug_ad_spend_details():
             AdSpend, Campaign.id == AdSpend.campaign_id
         ).filter(AdSpend.id.is_(None)).all()
         
+        # Get unique campaigns count - FIXED
+        unique_campaigns_count = db.session.query(func.count(distinct(AdSpend.meta_campaign_name))).scalar() or 0
+        
         return jsonify({
             'success': True,
             'summary': {
                 'total_records': AdSpend.query.count(),
                 'total_spend': db.session.query(func.sum(AdSpend.spend_amount)).scalar() or 0,
-                'unique_campaigns': db.session.query(func.count(distinct(AdSpend.meta_campaign_name))).scalar() or 0
+                'unique_campaigns': unique_campaigns_count
             },
             'by_campaign': [
                 {
@@ -573,7 +576,6 @@ def debug_ad_spend_details():
     except Exception as e:
         logger.error(f"Error in ad spend details: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
-
 
 @app.errorhandler(404)
 def not_found(error):

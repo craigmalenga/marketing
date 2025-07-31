@@ -1,5 +1,5 @@
 /**
- * File upload handling
+ * File upload handling - Fixed with CSV support
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -16,6 +16,11 @@ document.addEventListener('DOMContentLoaded', function() {
 function initializeUploadZone(type) {
     const dropzone = document.getElementById(`${type}-dropzone`);
     const fileInput = document.getElementById(`${type}-file`);
+    
+    if (!dropzone || !fileInput) {
+        console.error(`Upload zone elements not found for type: ${type}`);
+        return;
+    }
     
     // Click to upload
     dropzone.addEventListener('click', () => fileInput.click());
@@ -48,10 +53,10 @@ function initializeUploadZone(type) {
 }
 
 function handleFileUpload(type, file) {
-    // Validate file type
+    // Updated valid extensions to include CSV
     const validExtensions = {
-        'applications': ['.xlsx', '.xls'],
-        'flg': ['.xlsx', '.xls'],
+        'applications': ['.csv', '.xlsx', '.xls'],
+        'flg': ['.csv', '.xlsx', '.xls'],
         'adspend': ['.xlsx', '.xls'],
         'mapping': ['.docx', '.doc', '.xlsx', '.xls']
     };
@@ -67,8 +72,14 @@ function handleFileUpload(type, file) {
     const progressBar = progressDiv.querySelector('.progress-bar-fill');
     const resultDiv = document.getElementById(`${type}-result`);
     
+    if (!progressDiv || !progressBar || !resultDiv) {
+        console.error(`Progress elements not found for type: ${type}`);
+        return;
+    }
+    
     progressDiv.classList.remove('hidden');
     resultDiv.classList.add('hidden');
+    progressBar.style.width = '0%';
     
     // Create form data
     const formData = new FormData();
@@ -109,8 +120,11 @@ function handleFileUpload(type, file) {
             } else {
                 showUploadError(type, response.error || 'Upload failed', resultDiv);
                 updateUploadStatus(type, 'error');
+                console.error('Upload error:', response);
             }
         } catch (error) {
+            console.error('Parse error:', error);
+            console.error('Response text:', xhr.responseText);
             showUploadError(type, 'Invalid response from server', resultDiv);
             updateUploadStatus(type, 'error');
         }
@@ -118,8 +132,9 @@ function handleFileUpload(type, file) {
     
     xhr.addEventListener('error', () => {
         progressDiv.classList.add('hidden');
-        showUploadError(type, 'Upload failed', resultDiv);
+        showUploadError(type, 'Upload failed - Network error', resultDiv);
         updateUploadStatus(type, 'error');
+        console.error('XHR error');
     });
     
     xhr.open('POST', endpoints[type]);
@@ -133,25 +148,64 @@ function showUploadSuccess(type, response, resultDiv) {
     
     // Add specific details based on type
     if (type === 'applications') {
-        html += `<br>Processed: ${response.records_processed} records`;
-        html += `<br>Passed: ${response.passed_count}, Failed: ${response.failed_count}`;
+        if (response.records_processed !== undefined) {
+            html += `<br>Processed: ${response.records_processed} records`;
+        }
+        if (response.passed_count !== undefined && response.failed_count !== undefined) {
+            html += `<br>Passed: ${response.passed_count}, Failed: ${response.failed_count}`;
+        }
+        if (response.file_type) {
+            html += `<br>File type: ${response.file_type}`;
+        }
+        
+        // Show warnings if present
+        if (response.details && response.details.warnings && response.details.warnings.length > 0) {
+            html += '<br><span class="text-yellow-600">Warnings:</span>';
+            response.details.warnings.forEach(warning => {
+                html += `<br>• ${warning}`;
+            });
+        }
     } else if (type === 'flg') {
-        html += `<br>Processed: ${response.records_processed} records`;
+        if (response.records_processed !== undefined) {
+            html += `<br>Processed: ${response.records_processed} records`;
+        }
+        if (response.details) {
+            if (response.details.applications_created) {
+                html += `<br>Applications created: ${response.details.applications_created}`;
+            }
+            if (response.details.products_extracted) {
+                html += `<br>Products extracted: ${response.details.products_extracted}`;
+            }
+        }
         if (response.new_products && response.new_products.length > 0) {
             html += `<br>New products found: ${response.new_products.join(', ')}`;
         }
         if (response.unmapped_sources && response.unmapped_sources.length > 0) {
             html += `<br><span class="text-yellow-600">Unmapped marketing sources: ${response.unmapped_sources.length}</span>`;
+            html += '<br><small>' + response.unmapped_sources.slice(0, 5).join(', ');
+            if (response.unmapped_sources.length > 5) {
+                html += ` and ${response.unmapped_sources.length - 5} more`;
+            }
+            html += '</small>';
         }
     } else if (type === 'adspend') {
-        html += `<br>Processed: ${response.records_processed} records`;
-        html += `<br>Total spend: ${formatCurrency(response.total_spend)}`;
+        if (response.records_processed !== undefined) {
+            html += `<br>Processed: ${response.records_processed} records`;
+        }
+        if (response.total_spend !== undefined) {
+            html += `<br>Total spend: ${formatCurrency(response.total_spend)}`;
+        }
         if (response.new_campaigns && response.new_campaigns.length > 0) {
             html += `<br>New campaigns: ${response.new_campaigns.join(', ')}`;
         }
+        if (response.details && response.details.sheets_processed) {
+            html += `<br>Sheets processed: ${response.details.sheets_processed}`;
+        }
     } else if (type === 'mapping') {
-        html += `<br>Created: ${response.mappings_created} mappings`;
-        html += `<br>Updated: ${response.mappings_updated} mappings`;
+        let created = response.details ? response.details.mappings_created : response.mappings_created || 0;
+        let updated = response.details ? response.details.mappings_updated : response.mappings_updated || 0;
+        html += `<br>Created: ${created} mappings`;
+        html += `<br>Updated: ${updated} mappings`;
     }
     
     html += '</div>';
@@ -171,6 +225,8 @@ function showUploadError(type, error, resultDiv) {
 
 function updateUploadStatus(type, status) {
     const statusSpan = document.getElementById(`${type}-status`);
+    if (!statusSpan) return;
+    
     if (status === 'success') {
         statusSpan.innerHTML = '<i class="fas fa-check-circle text-green-500"></i>';
     } else if (status === 'error') {
@@ -193,6 +249,7 @@ function loadUploadHistory() {
 
 function displayUploadHistory(history) {
     const tbody = document.getElementById('upload-history-tbody');
+    if (!tbody) return;
     
     if (history.length === 0) {
         tbody.innerHTML = `
@@ -226,4 +283,36 @@ function displayUploadHistory(history) {
     });
     
     tbody.innerHTML = html;
+}
+
+// Utility functions
+function formatCurrency(value) {
+    return new Intl.NumberFormat('en-GB', {
+        style: 'currency',
+        currency: 'GBP',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(value);
+}
+
+function showAlert(message, type = 'info') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} mb-4`;
+    
+    const icon = type === 'success' ? 'check-circle' : 
+                 type === 'error' ? 'exclamation-circle' : 
+                 type === 'warning' ? 'exclamation-triangle' : 
+                 'info-circle';
+    
+    alertDiv.innerHTML = `<i class="fas fa-${icon} mr-2"></i>${message}`;
+    
+    const main = document.querySelector('main');
+    if (main) {
+        main.insertBefore(alertDiv, main.firstChild);
+        
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
 }

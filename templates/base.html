@@ -30,7 +30,7 @@
     <!-- HEADER -->
     <header>
         <div class="top-header">
-            <img src="{{ url_for('static', filename='img/store_logo.png') }}" alt="Marketing Analytics" />
+            <img src="{{ url_for('static', filename='img/store_logo.png') }}" alt="Logo" />
             <div class="nav-links">
                 <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
                     Dashboard
@@ -43,6 +43,9 @@
                 </a>
                 <a href="{{ url_for('marketing_campaign') }}" class="nav-link {% if request.endpoint == 'marketing_campaign' %}active{% endif %}">
                     Marketing Campaign
+                </a>
+                <a href="{{ url_for('product_category_analysis') }}" class="nav-link {% if request.endpoint == 'product_category_analysis' %}active{% endif %}">
+                    Product Analysis
                 </a>
                 <button id="status-mapping-btn" class="btn btn-secondary">
                     <i class="fas fa-cogs"></i>Status Mappings
@@ -72,31 +75,43 @@
 
     <!-- FOOTER -->
     <footer>
-        <div class="footer-content">
-            <div class="footer-left">
-                <img src="{{ url_for('static', filename='img/store_logo.png') }}" alt="Marketing Analytics" />
-                <p>Marketing Analytics Platform</p>
-                <p>Advanced reporting and data analysis for marketing performance</p>
-                <p>&copy; 2025 Marketing Analytics Platform. All rights reserved.</p>
-            </div>
-            <div class="footer-contact">
-                <p>
-                    <img src="{{ url_for('static', filename='img/phone.png') }}" class="icon" alt="Phone" />
-                    Support: 0800 123 4567
-                </p>
-                <p>
-                    <img src="{{ url_for('static', filename='img/mail.png') }}" class="icon" alt="Mail" />
-                    analytics@marketing.com
-                </p>
-                <p>
-                    <img src="{{ url_for('static', filename='img/map.png') }}" class="icon" alt="Map" />
-                    <a href="#" target="_blank">View locations</a>
-                </p>
-            </div>
+        <div class="footer-left">
+            <img src="{{ url_for('static', filename='img/store_logo.png') }}" alt="Logo" />
+            <p>
+                Smarterbuys Store and Mammoth Loans are a trading
+                style of Mammoth Finance Limited
+            </p>
+            <p>
+                Registered Address:
+                Baird House, City West Business Park,
+                Scotswood Road, Newcastle Upon Tyne, NE4 7DF
+            </p>
+            <p>
+                A Limited Company Registered in England and Wales
+                No. 07526461
+            </p>
+            <p>
+                Smarterbuys Store and Mammoth Loans are authorised
+                and regulated by the Financial Conduct Authority.
+                Firm Reference Number: 692676. Registered with the
+                Information Commissioner's Office: ZB627106.
+            </p>
         </div>
-        <div class="footer-bottom">
-            Powered by Advanced Analytics Solutions
+        <div class="footer-contact">
+            <p>
+                <img src="{{ url_for('static', filename='img/phone.png') }}" class="icon" alt="Phone" />
+                0300 500 0975
+            </p>
+            <p>
+                <img src="{{ url_for('static', filename='img/mail.png') }}" class="icon" alt="Mail" />
+                queries@smarterbuys.co.uk
+            </p>
+            <p>
+                <img src="{{ url_for('static', filename='img/map.png') }}" class="icon" alt="Map" />
+                <a href="https://goo.gl/maps/..." target="_blank">View on map</a>
+            </p>
         </div>
+        <div class="footer-bottom">© 2019–2025 Smarterbuys Store</div>
     </footer>
 
     <!-- Status Mapping Modal -->

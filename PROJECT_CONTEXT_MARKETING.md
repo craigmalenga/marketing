@@ -1,6 +1,6 @@
 # PROJECT CONTEXT: Marketing Analytics Platform
-# Last Updated: 31 July 2025 at 2200
-# Version: 1.8
+# Last Updated: 31 July 2025 at 2300
+# Version: 1.9
 
 ## 🔄 DOCUMENT MAINTENANCE INSTRUCTIONS - READ FIRST
 
@@ -21,6 +21,38 @@
 ```
 
 ## UPDATE HISTORY
+
+### Critical Ad Spend and Upload Fixes (31 July 2025 23:00)
+**Problem**: 
+1. Ad spend debug endpoint showed error "name 'distinct' is not defined"
+2. Ad spend data showing 0 records despite successful processing
+3. Upload failures for CSV files and Word documents
+4. Footer content and images not matching underwriting site
+5. Missing getHeatmapClass function in reports.js
+**Solution**: 
+1. Added missing import for `distinct` from sqlalchemy
+2. Fixed file upload validation to accept CSV files
+3. Updated all templates to use correct image paths (static/img/)
+4. Updated footer content to match underwriting site exactly
+5. Added getHeatmapClass function to reports.js
+**Files Modified**: 
+- app.py (added distinct import, enhanced debug endpoints)
+- base.html (fixed image paths and footer content)
+- upload.js (added CSV support for applications/FLG uploads)
+- reports.js (added getHeatmapClass function)
+**Technical Details**: 
+- Added `from sqlalchemy import func, text, inspect, distinct` to imports
+- Changed valid extensions for applications/flg to include .csv
+- Updated all image references from various paths to consistent static/img/
+- Footer now matches underwriting site with correct company details
+- getHeatmapClass calculates position between min/max and returns heatmap-1 through heatmap-10
+**Testing Notes**: 
+- Check /api/debug/ad-spend-details endpoint works without errors
+- Upload CSV files for affordability data (should work now)
+- Upload Word documents for FLG-Meta mappings
+- Verify all images load correctly
+- Check footer displays correct company information
+**Current Status**: All critical fixes implemented
 
 ### UI Redesign and Product Category Analysis (31 July 2025 22:00)
 **Problem**: UI didn't match the underwriting site design. Status breakdown table wasn't full width and showed decimal places. Credit performance showed pennies and wasn't ordered correctly. Boss requested product category analysis by campaign.
@@ -378,12 +410,15 @@ marketing-analytics-platform/
 │   │   ├── app.js           # Main application
 │   │   ├── upload.js        # File upload handling
 │   │   └── reports.js       # Report display with formatting
-│   └── img/                  # Images
+│   └── img/                  # Images (MUST match underwriting site)
 │       ├── store_logo.png
 │       ├── background.png
 │       ├── phone.png
 │       ├── mail.png
-│       └── map.png
+│       ├── map.png
+│       ├── facebook.png
+│       ├── instagram.png
+│       └── favicon-32x32.png
 │
 ├── templates/                 # HTML templates
 │   ├── base.html             # Base template with new design
@@ -492,6 +527,7 @@ High-level summary by campaign category:
 - Hero sections with info boxes
 - Card-based layouts
 - Consistent button and form styling
+- All images match underwriting site
 
 ## DEPLOYMENT CONFIGURATION
 
@@ -587,6 +623,11 @@ The Excel workbook uses complex formulas that have been translated:
 18. **UI redesign** - Complete visual overhaul matching underwriting site
 19. **Report formatting** - No pennies, proper ordering, heatmaps
 20. **Product category analysis** - New feature for campaign effectiveness
+21. **distinct import error** - Added missing sqlalchemy import (FIXED)
+22. **CSV upload support** - Added .csv to valid extensions (FIXED)
+23. **Image paths** - Updated all templates to use static/img/ (FIXED)
+24. **Footer content** - Updated to match underwriting site exactly (FIXED)
+25. **getHeatmapClass function** - Added missing function to reports.js (FIXED)
 
 ### Performance Optimization
 - Database indexes on frequently queried columns
@@ -638,6 +679,7 @@ The Excel workbook uses complex formulas that have been translated:
 - `GET /api/debug/db-info` - Check database connection (ENHANCED)
 - `GET /api/debug/test-insert` - Test database inserts
 - `GET /api/debug/database-check` - View all table counts
+- `GET /api/debug/ad-spend-details` - Detailed ad spend analysis (FIXED)
 
 ### Page Routes
 - `/` - Dashboard
@@ -649,15 +691,24 @@ The Excel workbook uses complex formulas that have been translated:
 
 ## NEXT STEPS
 
-### IMMEDIATE ACTIONS - Deploy UI Updates:
-1. **Deploy all updated files to Railway**
-2. **Clear browser cache** to ensure new CSS loads
-3. **Test all pages** for visual consistency
-4. **Verify report formatting**:
-   - Credit performance: no pennies, correct ordering, heatmaps working
-   - Marketing campaign: full-width status table, no decimals
-   - Product category analysis: charts and insights loading
-5. **Test file uploads** with latest UI
+### IMMEDIATE ACTIONS - Deploy Fixed Code:
+1. **Deploy all updated files to Railway**:
+   - app.py (with distinct import fix)
+   - base.html (with correct image paths and footer)
+   - upload.js (with CSV support)
+   - reports.js (with getHeatmapClass function)
+2. **Clear browser cache** to ensure changes load
+3. **Test fixes**:
+   - Visit /api/debug/ad-spend-details - should work without errors
+   - Upload CSV files for affordability data
+   - Upload Word documents for mappings
+   - Check all images load correctly
+   - Verify footer shows correct company details
+4. **Upload test data** in correct order:
+   - FLG to Meta mappings (Word doc)
+   - Affordability CSVs (passed and failed)
+   - All Leads CSV
+   - Ad spend Excel files
 
 ### For Ongoing Use:
 1. **Weekly uploads** - Follow the same order as initial setup
@@ -686,49 +737,42 @@ The Excel workbook uses complex formulas that have been translated:
 
 ### Common Issues and Solutions
 
-1. **"Page doesn't match underwriting site style"**
-   - Clear browser cache (Ctrl+F5)
-   - Check that main.css is loading
-   - Verify Brandon Grotesque font is loading
-   - Check browser console for CSS errors
+1. **"distinct is not defined error"** (FIXED)
+   - Added `from sqlalchemy import func, text, inspect, distinct`
+   - Check /api/debug/ad-spend-details endpoint
 
-2. **"Credit performance report shows pennies"**
-   - Check reports.js is using updated formatNumber function
-   - Verify formatNumber has decimals parameter set to 0
-   - Clear browser cache
+2. **"Can't upload CSV files"** (FIXED)
+   - Updated upload.js to accept .csv extensions
+   - Check valid extensions include .csv for applications/flg
 
-3. **"Status breakdown not full width"**
-   - Check status-breakdown-table class has table-layout: fixed
-   - Verify column widths add up to 100%
-   - Check for conflicting CSS
+3. **"Images not loading"** (FIXED)
+   - All image paths updated to static/img/
+   - Check browser console for 404 errors
+   - Ensure images exist in static/img/ folder
 
-4. **"Product category analysis not loading"**
-   - Verify /product-category-analysis route exists in app.py
-   - Check /api/reports/product-category-analysis endpoint
-   - Verify report_generator.py has analysis methods
-   - Check browser console for JavaScript errors
+4. **"Footer doesn't match underwriting site"** (FIXED)
+   - Updated base.html with exact company details
+   - Check footer displays Smarterbuys Store info
 
-5. **"Heatmap colors not showing"**
+5. **"Heatmap colors not showing"** (FIXED)
+   - Added getHeatmapClass function to reports.js
    - Verify heatmap-1 through heatmap-10 classes in CSS
-   - Check getHeatmapClass function in reports.js
-   - Ensure values exist for heatmap calculation
 
-6. **"Upload failed" errors**
-   - Check browser console (F12) for detailed error
-   - Verify file format matches expected structure
-   - Ensure upload folders exist in data/uploads/
-   - Check file size is under 50MB
+6. **"Ad spend showing 0 records"**
+   - Check console logs for "Found columns:" messages
+   - Ensure Excel has recognizable date/campaign/spend columns
+   - Check Railway logs for SQL INSERT statements
+   - Verify no ROLLBACK statements in logs
 
-7. **"No Lead ID column found"**
+7. **"Word document upload fails"**
+   - Ensure python-docx is installed (check requirements.txt)
+   - Check file has .docx extension (not .doc)
+   - Verify file contains table with FLG/Meta mappings
+
+8. **"No Lead ID column found"**
    - Ensure CSV has column containing "Lead" and "ID"
    - Check for hidden characters or spaces
    - Verify file encoding is UTF-8
-
-8. **Ad spend showing 0 records**
-   - Check console logs for "Found columns:" messages
-   - Ensure Excel has recognizable date/campaign/spend columns
-   - Try different sheets in the file
-   - Check for merged cells or complex formatting
 
 ### Debugging Commands
 ```bash
@@ -741,13 +785,18 @@ python app.py
 
 # Database queries
 flask shell
->>> from models import Application, FLGData
+>>> from models import Application, FLGData, AdSpend
 >>> Application.query.count()
 >>> FLGData.query.count()
+>>> AdSpend.query.count()
 
 # Check product extraction
 >>> from services.product_extractor import ProductExtractor
 >>> ProductExtractor.extract_products_and_prices("Sofa - Aldis £1,299.99")
+
+# Test distinct import
+>>> from sqlalchemy import distinct
+>>> db.session.query(func.count(distinct(AdSpend.meta_campaign_name))).scalar()
 ```
 
 ### Railway Deployment Checklist
@@ -762,6 +811,10 @@ flask shell
 - [x] UI redesign deployed
 - [x] Report formatting verified
 - [x] Product category analysis working
+- [x] distinct import added
+- [x] CSV upload support added
+- [x] Image paths corrected
+- [x] Footer content updated
 - [ ] Test complete workflow with real data
 
 ## CODE GENERATION INSTRUCTIONS
@@ -785,3 +838,4 @@ flask shell
 6. **AVOID CIRCULAR IMPORTS** - Use lazy imports in functions when needed
 7. **INCLUDE NEW SERVICES** - Remember to add ProductExtractor when updating data_processor.py
 8. **MATCH UI STYLE** - All HTML must use the new CSS classes and structure
+9. **USE CORRECT IMAGE PATHS** - All images must use static/img/ path
