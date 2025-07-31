@@ -72,13 +72,17 @@
         <!-- Weekly Trends Chart -->
         <div class="bg-white shadow rounded-lg p-6">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">Weekly Trends</h3>
-            <canvas id="weekly-trends-chart" width="400" height="200"></canvas>
+            <div style="position: relative; height: 300px;">
+                <canvas id="weekly-trends-chart"></canvas>
+            </div>
         </div>
 
         <!-- Product Performance Chart -->
         <div class="bg-white shadow rounded-lg p-6">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">Top Products by Applications</h3>
-            <canvas id="product-performance-chart" width="400" height="200"></canvas>
+            <div style="position: relative; height: 300px;">
+                <canvas id="product-performance-chart"></canvas>
+            </div>
         </div>
     </div>
 
@@ -193,13 +197,13 @@ function initializeCharts() {
             labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
             datasets: [{
                 label: 'Enquiries',
-                data: [65, 59, 80, 81, 56, 55, 40],
+                data: [0, 0, 0, 0, 0, 0, 0],
                 borderColor: 'rgb(59, 130, 246)',
                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
                 tension: 0.1
             }, {
                 label: 'Applications',
-                data: [28, 48, 40, 19, 86, 27, 90],
+                data: [0, 0, 0, 0, 0, 0, 0],
                 borderColor: 'rgb(16, 185, 129)',
                 backgroundColor: 'rgba(16, 185, 129, 0.1)',
                 tension: 0.1
@@ -212,6 +216,11 @@ function initializeCharts() {
                 legend: {
                     position: 'top',
                 }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
             }
         }
     });
@@ -221,16 +230,12 @@ function initializeCharts() {
     const productChart = new Chart(productCtx, {
         type: 'bar',
         data: {
-            labels: ['TV', 'Console', 'Washer Dryer', 'Fridge Freezer', 'Cooker'],
+            labels: ['No Data Yet'],
             datasets: [{
                 label: 'Applications',
-                data: [120, 90, 75, 60, 45],
+                data: [0],
                 backgroundColor: [
-                    'rgba(59, 130, 246, 0.8)',
-                    'rgba(16, 185, 129, 0.8)',
-                    'rgba(251, 191, 36, 0.8)',
-                    'rgba(167, 139, 250, 0.8)',
-                    'rgba(251, 113, 133, 0.8)'
+                    'rgba(59, 130, 246, 0.8)'
                 ]
             }]
         },
@@ -240,6 +245,11 @@ function initializeCharts() {
             plugins: {
                 legend: {
                     display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
                 }
             }
         }
