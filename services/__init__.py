@@ -1,9 +1,11 @@
+
 """
 Business logic services for Marketing Analytics Platform
 """
 
-from .data_processor import DataProcessor
-from .report_generator import ReportGenerator
-# MappingService is available but not imported by default to avoid circular imports
+# Don't import services at module level to avoid circular imports
+# Services should be imported directly where needed:
+# from services.data_processor import DataProcessor
+# from services.report_generator import ReportGenerator
 
-__all__ = ['DataProcessor', 'ReportGenerator']
+__all__ = []

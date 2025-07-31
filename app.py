@@ -18,6 +18,10 @@ from config import Config
 app = Flask(__name__)
 app.config.from_object(Config)
 
+# Configure upload folder
+app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'uploads')
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
+
 # Initialize extensions
 db = SQLAlchemy(app)
 CORS(app)
@@ -32,6 +36,10 @@ logger = logging.getLogger(__name__)
 # Ensure upload directories exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['EXPORT_FOLDER'], exist_ok=True)
+os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'applications'), exist_ok=True)
+os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'flg'), exist_ok=True)
+os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'ad_spend'), exist_ok=True)
+os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'mappings'), exist_ok=True)
 
 # Import models after db initialization to avoid circular imports
 with app.app_context():
@@ -43,21 +51,16 @@ with app.app_context():
     # Import routes after models
     from routes import upload_bp, reports_bp, mappings_bp
     
-    # Register blueprints
-    app.register_blueprint(upload_bp, url_prefix='/api/upload')
-    app.register_blueprint(reports_bp, url_prefix='/api/reports')
-    app.register_blueprint(mappings_bp, url_prefix='/api/mappings')
+    # Register blueprints WITHOUT the /api prefix since routes already include it
+    app.register_blueprint(upload_bp)
+    app.register_blueprint(reports_bp)
+    app.register_blueprint(mappings_bp)
 
 # Define main routes
 @app.route('/')
 def index():
     """Main dashboard page"""
     return render_template('index.html')
-
-@app.route('/upload')
-def upload_page():
-    """File upload page"""
-    return render_template('upload.html')
 
 @app.route('/credit-performance')
 def credit_performance():
@@ -101,6 +104,15 @@ def init_database_endpoint():
         
         # Create default status mappings
         from models import StatusMapping, Product
+        
+        # Check if already initialized
+        if StatusMapping.query.count() > 0:
+            return jsonify({
+                'success': True,
+                'message': 'Database already initialized',
+                'status_mappings_created': 0,
+                'products_created': 0
+            })
         
         default_statuses = StatusMapping.get_default_mappings()
         created_statuses = 0
@@ -160,7 +172,8 @@ def init_database_endpoint():
         })
         
     except Exception as e:
-        logger.error(f"Error initializing database: {e}")
+        logger.error(f"Error initializing database: {str(e)}", exc_info=True)
+        db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/upload-history')
@@ -230,11 +243,15 @@ def upload_history():
 @app.errorhandler(404)
 def not_found(error):
     """Handle 404 errors"""
-    return jsonify({'error': 'Not found'}), 404
+    logger.error(f"404 error: {request.url}")
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'API endpoint not found'}), 404
+    return render_template('404.html'), 404
 
 @app.errorhandler(500)
 def internal_error(error):
     """Handle 500 errors"""
+    logger.error(f"500 error: {str(error)}", exc_info=True)
     db.session.rollback()
     return jsonify({'error': 'Internal server error'}), 500
 
@@ -245,6 +262,7 @@ def init_db():
     logger.info("Database initialized successfully")
     
     # Create default status mappings
+    from models import StatusMapping
     default_statuses = StatusMapping.get_default_mappings()
     
     for status_data in default_statuses:
@@ -259,6 +277,8 @@ def init_db():
 @app.cli.command()
 def seed_test_data():
     """Seed database with test data"""
+    from models import Product
+    
     # Add some test products
     products = [
         {'name': 'Sofa - Aldis', 'category': 'Sofa'},

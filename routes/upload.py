@@ -2,19 +2,31 @@
 Upload routes for handling file uploads
 """
 
-from flask import Blueprint, request, jsonify, render_template, current_app
+from flask import Blueprint, request, jsonify, render_template, current_app, session
 from werkzeug.utils import secure_filename
 import os
 import logging
-from services import DataProcessor
-from models import Application, FLGData, AdSpend, FLGMetaMapping
-from app import db
 from datetime import datetime, timedelta
 from sqlalchemy import func
+from app import db
+
+# Import models
+from models import Application, FLGData, AdSpend, FLGMetaMapping
 
 logger = logging.getLogger(__name__)
 
 upload_bp = Blueprint('upload', __name__)
+
+# Create a module-level DataProcessor instance
+data_processor = None
+
+def get_data_processor():
+    """Get or create DataProcessor instance"""
+    global data_processor
+    if data_processor is None:
+        from services.data_processor import DataProcessor
+        data_processor = DataProcessor()
+    return data_processor
 
 # Allowed file extensions
 ALLOWED_EXTENSIONS = {
@@ -38,14 +50,19 @@ def upload_page():
 def upload_applications():
     """Handle applications data upload (CSV or Excel)"""
     try:
+        logger.info("Starting applications file upload")
+        
         if 'file' not in request.files:
+            logger.error("No file in request")
             return jsonify({'success': False, 'error': 'No file provided'}), 400
         
         file = request.files['file']
         if file.filename == '':
+            logger.error("Empty filename")
             return jsonify({'success': False, 'error': 'No file selected'}), 400
         
         if not allowed_file(file.filename, 'applications'):
+            logger.error(f"Invalid file type: {file.filename}")
             return jsonify({'success': False, 'error': 'Invalid file type. Please upload CSV or Excel file'}), 400
         
         # Save file
@@ -53,16 +70,19 @@ def upload_applications():
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = f"{timestamp}_{filename}"
         
-        upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'applications')
+        # Ensure upload directory exists
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', 'data/uploads')
+        upload_dir = os.path.join(upload_folder, 'applications')
         os.makedirs(upload_dir, exist_ok=True)
         
         filepath = os.path.join(upload_dir, filename)
+        logger.info(f"Saving file to: {filepath}")
         file.save(filepath)
         
         logger.info(f"Processing applications file: {filename}")
         
         # Process file
-        processor = DataProcessor()
+        processor = get_data_processor()
         result = processor.process_applications_file(filepath)
         
         # Log upload
@@ -79,13 +99,15 @@ def upload_applications():
         })
         
     except Exception as e:
-        logger.error(f"Error uploading applications file: {e}")
+        logger.error(f"Error uploading applications file: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @upload_bp.route('/api/upload/flg-data', methods=['POST'])
 def upload_flg_data():
     """Handle FLG data upload (CSV or Excel)"""
     try:
+        logger.info("Starting FLG data file upload")
+        
         if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'No file provided'}), 400
         
@@ -101,7 +123,8 @@ def upload_flg_data():
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = f"{timestamp}_{filename}"
         
-        upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'flg')
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', 'data/uploads')
+        upload_dir = os.path.join(upload_folder, 'flg')
         os.makedirs(upload_dir, exist_ok=True)
         
         filepath = os.path.join(upload_dir, filename)
@@ -110,7 +133,7 @@ def upload_flg_data():
         logger.info(f"Processing FLG data file: {filename}")
         
         # Process file
-        processor = DataProcessor()
+        processor = get_data_processor()
         result = processor.process_flg_data_file(filepath)
         
         # Log upload
@@ -136,13 +159,15 @@ def upload_flg_data():
         })
         
     except Exception as e:
-        logger.error(f"Error uploading FLG data file: {e}")
+        logger.error(f"Error uploading FLG data file: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @upload_bp.route('/api/upload/ad-spend', methods=['POST'])
 def upload_ad_spend():
     """Handle ad spend data upload"""
     try:
+        logger.info("Starting ad spend file upload")
+        
         if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'No file provided'}), 400
         
@@ -158,7 +183,8 @@ def upload_ad_spend():
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = f"{timestamp}_{filename}"
         
-        upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'ad_spend')
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', 'data/uploads')
+        upload_dir = os.path.join(upload_folder, 'ad_spend')
         os.makedirs(upload_dir, exist_ok=True)
         
         filepath = os.path.join(upload_dir, filename)
@@ -167,7 +193,7 @@ def upload_ad_spend():
         logger.info(f"Processing ad spend file: {filename}")
         
         # Process file
-        processor = DataProcessor()
+        processor = get_data_processor()
         result = processor.process_ad_spend_file(filepath)
         
         # Log upload
@@ -194,13 +220,15 @@ def upload_ad_spend():
         })
         
     except Exception as e:
-        logger.error(f"Error uploading ad spend file: {e}")
+        logger.error(f"Error uploading ad spend file: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @upload_bp.route('/api/upload/flg-meta-mapping', methods=['POST'])
 def upload_flg_meta_mapping():
     """Handle FLG to Meta name mapping upload"""
     try:
+        logger.info("Starting mapping file upload")
+        
         if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'No file provided'}), 400
         
@@ -216,7 +244,8 @@ def upload_flg_meta_mapping():
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = f"{timestamp}_{filename}"
         
-        upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'mappings')
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', 'data/uploads')
+        upload_dir = os.path.join(upload_folder, 'mappings')
         os.makedirs(upload_dir, exist_ok=True)
         
         filepath = os.path.join(upload_dir, filename)
@@ -225,7 +254,7 @@ def upload_flg_meta_mapping():
         logger.info(f"Processing mapping file: {filename}")
         
         # Process file
-        processor = DataProcessor()
+        processor = get_data_processor()
         result = processor.process_mapping_file(filepath)
         
         # Log upload
@@ -250,7 +279,7 @@ def upload_flg_meta_mapping():
         })
         
     except Exception as e:
-        logger.error(f"Error uploading mapping file: {e}")
+        logger.error(f"Error uploading mapping file: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @upload_bp.route('/api/upload/check-status')
@@ -288,15 +317,11 @@ def check_upload_status():
         })
         
     except Exception as e:
-        logger.error(f"Error checking upload status: {e}")
+        logger.error(f"Error checking upload status: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 def log_upload(upload_type, filename, result):
-    """Log upload to session or database"""
-    # For now, we'll store in session
-    # In production, you might want to create an UploadLog table
-    from flask import session
-    
+    """Log upload to session"""
     if 'upload_history' not in session:
         session['upload_history'] = []
     
@@ -323,8 +348,6 @@ def log_upload(upload_type, filename, result):
 
 def get_recent_uploads():
     """Get recent upload history"""
-    from flask import session
-    
     history = session.get('upload_history', [])
     
     # Format for display

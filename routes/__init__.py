@@ -1,5 +1,6 @@
+
 """
-API Routes for Marketing Analytics Platform
+Routes package for Marketing Analytics Platform
 """
 
 from .upload import upload_bp
