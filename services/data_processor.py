@@ -452,6 +452,7 @@ class DataProcessor:
             logger.error(f"Error processing FLG Excel file: {e}")
             raise
     
+
     def process_ad_spend_file(self, filepath):
         """Process ad spend Excel file - handles various formats"""
         try:
@@ -490,50 +491,75 @@ class DataProcessor:
                         col_lower = str(col).lower().strip()
                         
                         # Date columns
-                        if not date_col and any(term in col_lower for term in ['date', 'week', 'month', 'period', 'reporting']):
+                        if not date_col and any(term in col_lower for term in ['date', 'week', 'month', 'period', 'reporting', 'end', 'start']):
                             date_col = col
                             logger.info(f"Found date column: {col}")
                         
                         # Campaign columns
-                        elif not campaign_col and any(term in col_lower for term in ['campaign', 'meta campaign']):
+                        elif not campaign_col and any(term in col_lower for term in ['campaign', 'meta campaign', 'campaign name']):
                             campaign_col = col
                             logger.info(f"Found campaign column: {col}")
                         
                         # Ad set/level columns
-                        elif not adset_col and any(term in col_lower for term in ['ad set', 'adset', 'ad level', 'level']):
+                        elif not adset_col and any(term in col_lower for term in ['ad set', 'adset', 'ad level', 'level', 'ad name']):
                             adset_col = col
                             logger.info(f"Found ad set column: {col}")
                         
-                        # Spend columns
-                        elif not spend_col and any(term in col_lower for term in ['spend', 'cost', 'amount', 'gmp']):
+                        # Spend columns - UPDATED to handle more variations
+                        elif not spend_col and any(term in col_lower for term in ['spend', 'cost', 'amount', 'gmp', 'gmp (gbp)', 'total']):
+                            # For recent files, might just be a number column
                             spend_col = col
                             logger.info(f"Found spend column: {col}")
                     
-                    # If we couldn't find columns by name, try by position and content
+                    # If we still haven't found a spend column, look for numeric columns
+                    if not spend_col:
+                        for col in df.columns:
+                            # Check if column contains mostly numeric values
+                            if df[col].dtype in ['float64', 'int64'] or pd.to_numeric(df[col], errors='coerce').notna().sum() > len(df) * 0.5:
+                                # Exclude date columns
+                                if col != date_col:
+                                    spend_col = col
+                                    logger.info(f"Found numeric spend column: {col}")
+                                    break
+                    
+                    # If we couldn't find all required columns
                     if not all([date_col, campaign_col, spend_col]):
-                        logger.warning("Could not identify all columns by name, trying by content...")
+                        logger.warning(f"Could not identify all required columns in sheet '{sheet_name}'")
+                        logger.warning(f"Date: {date_col}, Campaign: {campaign_col}, Spend: {spend_col}")
                         
-                        # Show sample data
-                        logger.info("Sample data from first 3 rows:")
-                        for idx, row in df.head(3).iterrows():
-                            logger.info(f"Row {idx}: {dict(row)}")
-                        
-                        # Skip this sheet if we can't identify columns
-                        continue
+                        # For weekly updated files, try specific column positions
+                        if 'weekly' in filename_lower and len(df.columns) >= 3:
+                            # Assume: Date/Period, Campaign, Ad Level, Spend
+                            if len(df.columns) >= 4:
+                                date_col = df.columns[0]
+                                campaign_col = df.columns[1]
+                                adset_col = df.columns[2]
+                                spend_col = df.columns[3]
+                            else:
+                                date_col = df.columns[0]
+                                campaign_col = df.columns[1]
+                                spend_col = df.columns[2]
+                            
+                            logger.info(f"Using column positions for weekly file: Date={date_col}, Campaign={campaign_col}, Spend={spend_col}")
+                        else:
+                            continue
                     
                     # Process rows
                     sheet_records = 0
                     for _, row in df.iterrows():
                         try:
                             # Skip empty rows
-                            if pd.isna(row.get(campaign_col)) or pd.isna(row.get(spend_col)):
+                            if pd.isna(row.get(campaign_col)):
                                 continue
                             
                             # Parse date
                             date_value = self._parse_date_safe(row.get(date_col))
                             if not date_value:
-                                # For historic data, try to extract month/year from sheet name or filename
-                                if is_historic:
+                                # For recent data, default to current date
+                                if not is_historic:
+                                    date_value = datetime.now().date()
+                                else:
+                                    # For historic data, try to extract from context
                                     date_value = self._extract_date_from_context(sheet_name, filename_lower)
                                 
                                 if not date_value:
@@ -543,7 +569,17 @@ class DataProcessor:
                             # Get values
                             campaign_name = str(row.get(campaign_col)).strip()
                             ad_level = str(row.get(adset_col)).strip() if adset_col and pd.notna(row.get(adset_col)) else None
-                            spend_amount = self._parse_float(row.get(spend_col))
+                            
+                            # Parse spend amount - handle various formats
+                            spend_value = row.get(spend_col)
+                            spend_amount = self._parse_float(spend_value)
+                            
+                            if not spend_amount or spend_amount <= 0:
+                                # Try without currency parsing
+                                if isinstance(spend_value, (int, float)):
+                                    spend_amount = float(spend_value)
+                                else:
+                                    continue
                             
                             if not spend_amount or spend_amount <= 0:
                                 continue
@@ -564,7 +600,7 @@ class DataProcessor:
                                 meta_campaign_name=campaign_name,
                                 ad_level=ad_level,
                                 spend_amount=spend_amount,
-                                is_new=False,  # Historic data
+                                is_new=not is_historic,
                                 campaign=campaign
                             )
                             
@@ -593,7 +629,7 @@ class DataProcessor:
                 'records_processed': total_records,
                 'new_campaigns': list(new_campaigns),
                 'total_spend': total_spend,
-                'file_type': 'Excel - Historic' if is_historic else 'Excel',
+                'file_type': 'Excel - Weekly' if 'weekly' in filename_lower else ('Excel - Historic' if is_historic else 'Excel'),
                 'sheets_processed': len(all_records),
                 'is_historic': is_historic
             }
@@ -601,8 +637,8 @@ class DataProcessor:
         except Exception as e:
             db.session.rollback()
             logger.error(f"Error processing ad spend file: {e}")
-            raise
-    
+            raise    
+        
     def _extract_date_from_context(self, sheet_name, filename):
         """Try to extract date from sheet name or filename for historic data"""
         import re

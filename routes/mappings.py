@@ -1,5 +1,6 @@
 """
-Mapping management routes
+Mapping management routes - FIXED with /api prefix
+routes/mappings.py
 """
 
 import logging
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 mappings_bp = Blueprint('mappings', __name__)
 
-@mappings_bp.route('/status', methods=['GET'])
+@mappings_bp.route('/api/mappings/status', methods=['GET'])
 def get_status_mappings():
     """Get all status mappings"""
     try:
@@ -24,7 +25,7 @@ def get_status_mappings():
         logger.error(f"Error fetching status mappings: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@mappings_bp.route('/status', methods=['POST'])
+@mappings_bp.route('/api/mappings/status', methods=['POST'])
 def create_status_mapping():
     """Create a new status mapping"""
     try:
@@ -62,7 +63,7 @@ def create_status_mapping():
         logger.error(f"Error creating status mapping: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@mappings_bp.route('/status/<int:mapping_id>', methods=['PUT'])
+@mappings_bp.route('/api/mappings/status/<int:mapping_id>', methods=['PUT'])
 def update_status_mapping(mapping_id):
     """Update a status mapping"""
     try:
@@ -94,7 +95,7 @@ def update_status_mapping(mapping_id):
         logger.error(f"Error updating status mapping: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@mappings_bp.route('/status/<int:mapping_id>', methods=['DELETE'])
+@mappings_bp.route('/api/mappings/status/<int:mapping_id>', methods=['DELETE'])
 def delete_status_mapping(mapping_id):
     """Delete a status mapping"""
     try:
@@ -112,7 +113,7 @@ def delete_status_mapping(mapping_id):
         logger.error(f"Error deleting status mapping: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@mappings_bp.route('/flg-meta', methods=['GET'])
+@mappings_bp.route('/api/mappings/flg-meta', methods=['GET'])
 def get_flg_meta_mappings():
     """Get all FLG to Meta name mappings"""
     try:
@@ -125,7 +126,7 @@ def get_flg_meta_mappings():
         logger.error(f"Error fetching FLG meta mappings: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@mappings_bp.route('/flg-meta', methods=['POST'])
+@mappings_bp.route('/api/mappings/flg-meta', methods=['POST'])
 def create_flg_meta_mapping():
     """Create a new FLG to Meta name mapping"""
     try:
@@ -160,7 +161,7 @@ def create_flg_meta_mapping():
         logger.error(f"Error creating FLG meta mapping: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@mappings_bp.route('/flg-meta/<int:mapping_id>', methods=['PUT'])
+@mappings_bp.route('/api/mappings/flg-meta/<int:mapping_id>', methods=['PUT'])
 def update_flg_meta_mapping(mapping_id):
     """Update a FLG to Meta name mapping"""
     try:
@@ -186,7 +187,7 @@ def update_flg_meta_mapping(mapping_id):
         logger.error(f"Error updating FLG meta mapping: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@mappings_bp.route('/flg-meta/<int:mapping_id>', methods=['DELETE'])
+@mappings_bp.route('/api/mappings/flg-meta/<int:mapping_id>', methods=['DELETE'])
 def delete_flg_meta_mapping(mapping_id):
     """Delete a FLG to Meta name mapping"""
     try:
@@ -204,7 +205,7 @@ def delete_flg_meta_mapping(mapping_id):
         logger.error(f"Error deleting FLG meta mapping: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@mappings_bp.route('/status/initialize', methods=['POST'])
+@mappings_bp.route('/api/mappings/status/initialize', methods=['POST'])
 def initialize_status_mappings():
     """Initialize default status mappings"""
     try:

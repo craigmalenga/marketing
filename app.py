@@ -312,6 +312,54 @@ def seed_test_data():
     db.session.commit()
     logger.info("Test data seeded successfully")
 
+@app.route('/api/debug/database-check')
+def debug_database_check():
+    """Debug endpoint to check database contents"""
+    try:
+        from models import (
+            Application, FLGData, AdSpend, Product, Campaign,
+            StatusMapping, FLGMetaMapping
+        )
+        
+        # Get counts
+        counts = {
+            'applications': Application.query.count(),
+            'flg_data': FLGData.query.count(),
+            'ad_spend': AdSpend.query.count(),
+            'products': Product.query.count(),
+            'campaigns': Campaign.query.count(),
+            'status_mappings': StatusMapping.query.count(),
+            'flg_meta_mappings': FLGMetaMapping.query.count()
+        }
+        
+        # Get sample data
+        samples = {
+            'applications': [a.to_dict() for a in Application.query.limit(5).all()],
+            'flg_data': [f.to_dict() for f in FLGData.query.limit(5).all()],
+            'ad_spend': [a.to_dict() for a in AdSpend.query.limit(5).all()],
+            'products': [p.to_dict() for p in Product.query.all()],
+            'campaigns': [c.to_dict() for c in Campaign.query.limit(5).all()],
+            'status_mappings': [s.to_dict() for s in StatusMapping.query.limit(5).all()],
+            'flg_meta_mappings': [f.to_dict() for f in FLGMetaMapping.query.limit(5).all()]
+        }
+        
+        # Get database info
+        db_info = {
+            'database_url': app.config.get('SQLALCHEMY_DATABASE_URI', 'Not configured').split('@')[-1] if '@' in app.config.get('SQLALCHEMY_DATABASE_URI', '') else app.config.get('SQLALCHEMY_DATABASE_URI', 'Not configured'),
+            'tables': db.metadata.tables.keys()
+        }
+        
+        return jsonify({
+            'success': True,
+            'counts': counts,
+            'samples': samples,
+            'database_info': db_info
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in database check: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

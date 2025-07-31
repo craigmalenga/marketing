@@ -1,21 +1,24 @@
 """
-Report generation routes
+Report generation routes - FIXED with /api prefix
+routes/reports.py
 """
 
 import logging
 from flask import Blueprint, request, jsonify, send_file
 from datetime import datetime, timedelta
-from services.report_generator import ReportGenerator
 import os
 
 logger = logging.getLogger(__name__)
 
 reports_bp = Blueprint('reports', __name__)
 
-@reports_bp.route('/credit-performance', methods=['GET'])
+@reports_bp.route('/api/reports/credit-performance', methods=['GET'])
 def get_credit_performance():
     """Generate credit performance by product report"""
     try:
+        # Import here to avoid circular imports
+        from services.report_generator import ReportGenerator
+        
         # Get filter parameters
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
@@ -55,10 +58,13 @@ def get_credit_performance():
         logger.error(f"Error generating credit performance report: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@reports_bp.route('/marketing-campaign', methods=['GET'])
+@reports_bp.route('/api/reports/marketing-campaign', methods=['GET'])
 def get_marketing_campaign():
     """Generate marketing campaign performance report"""
     try:
+        # Import here to avoid circular imports
+        from services.report_generator import ReportGenerator
+        
         # Get filter parameters
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
@@ -100,10 +106,14 @@ def get_marketing_campaign():
         logger.error(f"Error generating marketing campaign report: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@reports_bp.route('/export/credit-performance', methods=['POST'])
+@reports_bp.route('/api/reports/export/credit-performance', methods=['POST'])
 def export_credit_performance():
     """Export credit performance report to Excel"""
     try:
+        # Import here to avoid circular imports
+        from services.report_generator import ReportGenerator
+        from flask import current_app
+        
         # Get filter parameters from request body
         data = request.get_json()
         start_date = datetime.strptime(data.get('start_date'), '%Y-%m-%d') if data.get('start_date') else datetime.now() - timedelta(days=30)
@@ -129,10 +139,13 @@ def export_credit_performance():
         logger.error(f"Error exporting credit performance report: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@reports_bp.route('/export/marketing-campaign', methods=['POST'])
+@reports_bp.route('/api/reports/export/marketing-campaign', methods=['POST'])
 def export_marketing_campaign():
     """Export marketing campaign report to Excel"""
     try:
+        # Import here to avoid circular imports
+        from services.report_generator import ReportGenerator
+        
         # Get filter parameters from request body
         data = request.get_json()
         start_date = datetime.strptime(data.get('start_date'), '%Y-%m-%d') if data.get('start_date') else datetime.now() - timedelta(days=30)
@@ -160,10 +173,13 @@ def export_marketing_campaign():
         logger.error(f"Error exporting marketing campaign report: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@reports_bp.route('/summary', methods=['GET'])
+@reports_bp.route('/api/reports/summary', methods=['GET'])
 def get_summary():
     """Get summary statistics for dashboard"""
     try:
+        # Import here to avoid circular imports
+        from services.report_generator import ReportGenerator
+        
         generator = ReportGenerator()
         summary = generator.get_summary_statistics()
         
@@ -176,7 +192,7 @@ def get_summary():
         logger.error(f"Error generating summary statistics: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@reports_bp.route('/available-filters', methods=['GET'])
+@reports_bp.route('/api/reports/available-filters', methods=['GET'])
 def get_available_filters():
     """Get available filter options"""
     try:
