@@ -19,19 +19,48 @@ from config import Config
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# CRITICAL FIX: Handle Railway Postgres URL properly
+# CRITICAL FIX: Handle Railway Postgres URL properly with better error handling
 database_url = os.environ.get('DATABASE_URL')
+
+# Log the database URL status BEFORE any modifications
 if database_url:
-    # Railway uses postgres:// but SQLAlchemy needs postgresql://
-    if database_url.startswith('postgres://'):
-        database_url = database_url.replace('postgres://', 'postgresql://', 1)
-    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-    # Log that we're using Railway Postgres
-    print(f"Using Railway Postgres: {database_url.split('@')[1] if '@' in database_url else 'unknown'}")
+    print(f"DATABASE_URL found: {database_url[:30]}...")
 else:
-    # Fallback to SQLite for local development
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///local.db'
-    print("WARNING: No DATABASE_URL found, using local SQLite")
+    print("CRITICAL WARNING: DATABASE_URL environment variable not found!")
+
+# Ensure we have a database URL
+if not database_url:
+    # Check for alternative environment variable names
+    database_url = os.environ.get('RAILWAY_DATABASE_URL') or os.environ.get('POSTGRES_URL')
+    if database_url:
+        print(f"Found alternative database URL: {database_url[:30]}...")
+    else:
+        # CRITICAL: Exit if no database URL in production
+        if os.environ.get('RAILWAY_ENVIRONMENT') == 'production':
+            raise RuntimeError("CRITICAL ERROR: No DATABASE_URL found in production environment! Check Railway environment variables.")
+        else:
+            # Only use SQLite in development
+            database_url = 'sqlite:///local.db'
+            print("WARNING: Using local SQLite for development only")
+
+# Fix postgres:// to postgresql:// for SQLAlchemy
+if database_url.startswith('postgres://'):
+    database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    print("Converted postgres:// to postgresql://")
+
+# Set the database URL
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+
+# Log final database configuration
+if 'postgresql' in database_url:
+    # Extract just the database host for logging (hide credentials)
+    if '@' in database_url:
+        db_host = database_url.split('@')[1].split('/')[0]
+        print(f"Using PostgreSQL database at: {db_host}")
+    else:
+        print("Using PostgreSQL database")
+elif 'sqlite' in database_url:
+    print("WARNING: Using SQLite database - data will not persist in production!")
 
 # Configure upload folder
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'uploads')
@@ -52,6 +81,20 @@ logger = logging.getLogger(__name__)
 
 # Log database connection info
 logger.info(f"Database URI configured: {app.config['SQLALCHEMY_DATABASE_URI'][:50]}...")
+
+# Test database connection immediately
+try:
+    with app.app_context():
+        # Test the connection
+        result = db.session.execute(text('SELECT 1')).scalar()
+        if result == 1:
+            logger.info("✓ Database connection test successful")
+        else:
+            logger.error("✗ Database connection test failed - unexpected result")
+except Exception as e:
+    logger.error(f"✗ CRITICAL: Database connection test failed: {e}")
+    if os.environ.get('RAILWAY_ENVIRONMENT') == 'production':
+        raise RuntimeError(f"Cannot start app - database connection failed: {e}")
 
 # Ensure upload directories exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -181,6 +224,14 @@ def debug_db_info():
             except Exception as e:
                 ad_spend_details = {'error': str(e)}
         
+        # Check environment variables
+        env_vars = {
+            'DATABASE_URL': 'SET' if os.environ.get('DATABASE_URL') else 'NOT SET',
+            'RAILWAY_ENVIRONMENT': os.environ.get('RAILWAY_ENVIRONMENT', 'NOT SET'),
+            'RAILWAY_DATABASE_URL': 'SET' if os.environ.get('RAILWAY_DATABASE_URL') else 'NOT SET',
+            'POSTGRES_URL': 'SET' if os.environ.get('POSTGRES_URL') else 'NOT SET',
+        }
+        
         return jsonify({
             'success': True,
             'database_url': db_info,
@@ -189,7 +240,9 @@ def debug_db_info():
             'existing_tables': existing_tables,
             'table_counts': counts,
             'ad_spend_details': ad_spend_details,
-            'environment': os.environ.get('RAILWAY_ENVIRONMENT', 'local')
+            'environment': os.environ.get('RAILWAY_ENVIRONMENT', 'local'),
+            'environment_variables': env_vars,
+            'connection_test': 'PASSED' if current_db else 'FAILED'
         })
         
     except Exception as e:
@@ -223,6 +276,7 @@ def test_database_insert():
         
         # Commit the transaction
         db.session.commit()
+        logger.info("Test insert: Successfully committed test data")
         
         # Verify it was saved
         saved_campaign = Campaign.query.filter_by(id=test_campaign.id).first()
@@ -238,7 +292,8 @@ def test_database_insert():
             'ad_spend_created': {
                 'id': saved_ad_spend.id,
                 'amount': saved_ad_spend.spend_amount
-            } if saved_ad_spend else None
+            } if saved_ad_spend else None,
+            'database_type': 'PostgreSQL' if 'postgresql' in app.config['SQLALCHEMY_DATABASE_URI'] else 'SQLite'
         })
         
     except Exception as e:
@@ -254,6 +309,10 @@ def test_database_insert():
 def init_database_endpoint():
     """Initialize database tables via API endpoint"""
     try:
+        # Log current database
+        db_url = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+        logger.info(f"Initializing database: {db_url[:50]}...")
+        
         # Create all tables
         db.create_all()
         
@@ -328,7 +387,8 @@ def init_database_endpoint():
             'message': 'Database initialized successfully',
             'tables_created': created_tables,
             'status_mappings_created': created_statuses,
-            'products_created': created_products
+            'products_created': created_products,
+            'database_type': 'PostgreSQL' if 'postgresql' in app.config['SQLALCHEMY_DATABASE_URI'] else 'SQLite'
         })
         
     except Exception as e:
@@ -533,18 +593,22 @@ def seed_test_data():
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()
-        logger.info("Marketing Analytics Platform started")
-        logger.info(f"Database: {app.config['SQLALCHEMY_DATABASE_URI'][:50]}...")
-        logger.info(f"Upload folder: {app.config['UPLOAD_FOLDER']}")
-        logger.info(f"Export folder: {app.config['EXPORT_FOLDER']}")
-        
-        # Test database connection
+        # Verify database connection before starting
         try:
             db.session.execute(text('SELECT 1'))
-            logger.info("Database connection successful")
+            logger.info("✓ Final database connection check passed")
+            
+            # Show which database we're using
+            db_type = 'PostgreSQL' if 'postgresql' in app.config['SQLALCHEMY_DATABASE_URI'] else 'SQLite'
+            logger.info(f"Starting app with {db_type} database")
+            
+            # Create tables if they don't exist
+            db.create_all()
+            logger.info("✓ Database tables ready")
+            
         except Exception as e:
-            logger.error(f"Database connection failed: {e}")
+            logger.error(f"✗ Cannot start app - database error: {e}")
+            raise
     
     # Run the application
     port = int(os.environ.get('PORT', 5000))

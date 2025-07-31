@@ -494,10 +494,17 @@ class DataProcessor:
                         col_str = str(col).strip()
                         col_lower = col_str.lower()
                         
-                        # Date column
-                        if not date_col and any(term in col_lower for term in ['date', 'week', 'month', 'day', 'period']):
-                            date_col = col
-                            logger.info(f"Date column: {col}")
+                        # Date column - PRIORITIZE "Reporting ends" for date
+                        if not date_col:
+                            if 'reporting ends' in col_lower or 'reporting_ends' in col_lower:
+                                date_col = col
+                                logger.info(f"Date column (Reporting ends): {col}")
+                            elif 'reporting end' in col_lower:
+                                date_col = col
+                                logger.info(f"Date column (Reporting end): {col}")
+                            elif any(term in col_lower for term in ['date', 'week', 'month', 'day', 'period']):
+                                date_col = col
+                                logger.info(f"Date column: {col}")
                         
                         # Campaign column
                         elif not campaign_col and any(term in col_lower for term in ['campaign', 'name']):
@@ -936,5 +943,3 @@ class DataProcessor:
                     continue
         
         return None
-        
-        

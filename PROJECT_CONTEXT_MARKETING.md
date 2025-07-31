@@ -1,6 +1,6 @@
 # PROJECT CONTEXT: Marketing Analytics Platform
-# Last Updated: 31 July 2025 at 1900
-# Version: 1.5
+# Last Updated: 31 July 2025 at 2100
+# Version: 1.7
 
 ## 🔄 DOCUMENT MAINTENANCE INSTRUCTIONS - READ FIRST
 
@@ -21,6 +21,45 @@
 ```
 
 ## UPDATE HISTORY
+
+### Database Connection Root Cause Fix (31 July 2025 21:00)
+**Problem**: Data uploads showed success but nothing saved to database. Marketing reports showed £0 despite successful ad spend imports. Root cause: App was using SQLite locally instead of Railway's PostgreSQL.
+**Solution**: Enhanced database connection handling with multiple environment variable checks, connection validation, and fail-fast behavior in production
+**Files Modified**: 
+- app.py (major rewrite of database connection logic)
+**Technical Details**: 
+- Added checks for multiple DATABASE_URL environment variable names
+- Added connection test before app starts
+- Added fail-fast behavior if no database in production
+- Enhanced logging to clearly show which database is being used
+- Added environment variable status to debug endpoints
+**Testing Notes**: 
+- Deploy and check /api/debug/db-info - should show PostgreSQL and environment_variables status
+- Upload files and verify data persists across sessions
+- Check marketing reports show correct spend amounts
+**Current Status**: Solution identified and implemented. App was falling back to SQLite because DATABASE_URL wasn't found. Fix ensures proper PostgreSQL connection.
+
+### Database Connection Fix Attempt (31 July 2025 20:30)
+**Problem**: Uploads show success with correct data parsing (e.g., "Total spend: £10,494.10") but nothing saves to database. All tables remain empty despite successful parsing.
+**Solution**: Fixed DATABASE_URL handling for Railway Postgres, added debug endpoints, enabled SQL query logging
+**Files Modified**: 
+- app.py (major updates for database connection handling)
+- Added SQLAlchemy func import to data_processor.py and upload.py
+**Technical Details**: 
+- Fixed postgres:// to postgresql:// conversion for Railway
+- Added SQLALCHEMY_ECHO = True for SQL query logging
+- Added debug endpoints:
+  - /api/debug/db-info - Shows database connection details
+  - /api/debug/test-insert - Tests if inserts work
+  - /api/debug/database-check - Shows all table counts with ad spend summary
+- Better error handling and logging throughout
+- Database URL validation on startup
+**Testing Notes**: 
+- Deploy updated app.py and visit /api/debug/db-info to verify PostgreSQL connection
+- Check /api/debug/test-insert to verify inserts work
+- Upload a file and check Railway logs for SQL INSERT statements
+- If still failing, check for ROLLBACK statements in logs
+**Current Status**: Issue was wrong database (SQLite vs Postgres) due to missing DATABASE_URL environment variable.
 
 ### Product Extraction and Report Fixes (31 July 2025 19:00)
 **Problem**: Missing VBA macro functionality, incorrect report calculations, missing data validation
@@ -463,6 +502,8 @@ The Excel workbook uses complex formulas that have been translated:
 13. **Product extraction** - VBA macro functionality replicated
 14. **Upload status endpoint** - Fixed structure for admin page
 15. **Processing validation** - Added warnings for out-of-order uploads
+16. **Database connection** - Fixed postgres:// to postgresql:// for Railway
+17. **SQLite fallback issue** - App was using SQLite instead of PostgreSQL (FIXED)
 
 ### Performance Optimization
 - Database indexes on frequently queried columns
@@ -506,22 +547,35 @@ The Excel workbook uses complex formulas that have been translated:
 - `GET /api/mappings/flg-meta` - Get FLG/Meta mappings
 - `POST /api/mappings/flg-meta` - Create FLG/Meta mapping
 
-### Admin Endpoints
+### Admin/Debug Endpoints
 - `POST /api/init-database` - Initialize database with defaults
 - `GET /api/health` - Health check endpoint
+- `GET /api/debug/db-info` - Check database connection (ENHANCED)
+- `GET /api/debug/test-insert` - Test database inserts
+- `GET /api/debug/database-check` - View all table counts
 
 ## NEXT STEPS
 
-### For Initial Setup:
-1. **Deploy to Railway** ✓
-2. **Add PostgreSQL database** ✓
-3. **Visit /admin and initialize database** ✓
-4. **Upload files in recommended order**:
-   - FLG to Meta mappings first (IMPORTANT)
-   - Affordability CSVs (both)
-   - All leads CSV
-   - Historic ad spend files
-5. **Verify reports show correct data**
+### IMMEDIATE ACTIONS - Fix Database Connection:
+1. **Deploy updated app.py to Railway** (Version 1.7)
+2. **Verify Railway environment variables**:
+   - Check Railway dashboard for DATABASE_URL
+   - Should be automatically set when PostgreSQL is added
+   - Value should start with `postgres://`
+3. **Check database connection**:
+   ```
+   https://your-app.railway.app/api/debug/db-info
+   ```
+   - `database_type` should show "PostgreSQL"
+   - `environment_variables.DATABASE_URL` should show "SET"
+   - `connection_test` should show "PASSED"
+4. **Re-upload files and verify**:
+   ```
+   https://your-app.railway.app/api/debug/database-check
+   ```
+   - Should show non-zero counts
+   - Ad spend summary should show correct totals
+5. **Check marketing reports** - should now show correct spend amounts
 
 ### For Ongoing Use:
 1. **Weekly uploads** - Follow the same order as initial setup
@@ -546,6 +600,21 @@ The Excel workbook uses complex formulas that have been translated:
 10. **Advanced price extraction** - Handle more complex pricing scenarios
 
 ## TROUBLESHOOTING GUIDE
+
+### 🚨 SOLVED ISSUE: Database Not Saving Data
+**Root Cause**: App was falling back to SQLite because DATABASE_URL environment variable wasn't being found properly.
+
+**Solution Applied**:
+- Enhanced database connection logic to check multiple environment variable names
+- Added connection validation before app starts
+- Added fail-fast behavior in production if no database found
+- Better logging to identify which database is being used
+
+**Verification Steps**:
+1. Check `/api/debug/db-info` shows PostgreSQL
+2. Check environment variables show DATABASE_URL as "SET"
+3. Upload files and verify data persists
+4. Marketing reports show correct spend amounts
 
 ### Common Issues and Solutions
 
@@ -615,7 +684,9 @@ flask shell
 - [x] Database initialized via /admin
 - [x] Upload folders created automatically
 - [x] Product extraction service deployed
-- [ ] Test file uploads in correct order
+- [x] Debug endpoints added
+- [x] Database connection verified (PostgreSQL not SQLite)
+- [ ] Test file uploads save to database
 - [ ] Verify reports display data correctly
 
 ## CODE GENERATION INSTRUCTIONS
