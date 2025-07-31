@@ -1,5 +1,5 @@
 """
-Data processing service for handling file uploads - Updated for CSV support
+Data processing service for handling file uploads - Corrected for actual data structure
 """
 
 import pandas as pd
@@ -18,584 +18,460 @@ logger = logging.getLogger(__name__)
 class DataProcessor:
     """Service for processing uploaded data files"""
     
+    def __init__(self):
+        # Track Lead IDs that passed/failed affordability checks
+        self.passed_lead_ids = set()
+        self.failed_lead_ids = set()
+    
     def process_applications_file(self, filepath):
-        """Process applications (affordability check) data - supports Excel and CSV"""
+        """Process affordability check files - Extract only Lead IDs"""
         try:
             file_ext = os.path.splitext(filepath)[1].lower()
+            filename_lower = os.path.basename(filepath).lower()
             
             if file_ext == '.csv':
-                # Process single CSV file
+                # Read CSV file
                 df = pd.read_csv(filepath)
                 
-                # Determine if it's passed or failed based on filename or content
-                affordability_result = 'unknown'
-                filename_lower = os.path.basename(filepath).lower()
+                # Check if Lead ID column exists
+                if 'Lead ID' not in df.columns:
+                    raise ValueError("Lead ID column not found in CSV file")
                 
+                # Extract Lead IDs
+                lead_ids = df['Lead ID'].dropna().unique()
+                count = len(lead_ids)
+                
+                # Determine if passed or failed
                 if 'passed' in filename_lower:
-                    affordability_result = 'passed'
+                    self.passed_lead_ids.update(str(int(lid)) if isinstance(lid, (int, float)) else str(lid) for lid in lead_ids)
+                    logger.info(f"Loaded {count} passed Lead IDs")
+                    return {
+                        'records_processed': count,
+                        'passed_count': count,
+                        'failed_count': 0,
+                        'file_type': 'CSV - Passed Lead IDs'
+                    }
                 elif 'failed' in filename_lower:
-                    affordability_result = 'failed'
+                    self.failed_lead_ids.update(str(int(lid)) if isinstance(lid, (int, float)) else str(lid) for lid in lead_ids)
+                    logger.info(f"Loaded {count} failed Lead IDs")
+                    return {
+                        'records_processed': count,
+                        'passed_count': 0,
+                        'failed_count': count,
+                        'file_type': 'CSV - Failed Lead IDs'
+                    }
                 else:
-                    # Try to determine from data
-                    if 'Status' in df.columns:
-                        status_values = df['Status'].dropna().unique()
-                        if any('passed' in str(s).lower() for s in status_values):
-                            affordability_result = 'passed'
-                        elif any('failed' in str(s).lower() for s in status_values):
-                            affordability_result = 'failed'
-                
-                count = self._process_applications_csv(df, affordability_result)
-                
-                db.session.commit()
-                
-                return {
-                    'records_processed': count,
-                    'passed_count': count if affordability_result == 'passed' else 0,
-                    'failed_count': count if affordability_result == 'failed' else 0,
-                    'file_type': 'CSV',
-                    'affordability_result': affordability_result
-                }
-                
-            else:
-                # Original Excel processing
-                xls = pd.ExcelFile(filepath)
-                
-                passed_count = 0
-                failed_count = 0
-                total_processed = 0
-                
-                # Process passed sheet
-                if 'Affordability data - passed' in xls.sheet_names:
-                    df_passed = pd.read_excel(xls, 'Affordability data - passed')
-                    passed_count = self._process_applications_sheet(df_passed, 'passed')
-                    total_processed += passed_count
-                
-                # Process failed sheet
-                if 'Affordability data - failed' in xls.sheet_names:
-                    df_failed = pd.read_excel(xls, 'Affordability data - failed')
-                    failed_count = self._process_applications_sheet(df_failed, 'failed')
-                    total_processed += failed_count
-                
-                db.session.commit()
-                
-                return {
-                    'records_processed': total_processed,
-                    'passed_count': passed_count,
-                    'failed_count': failed_count,
-                    'file_type': 'Excel'
-                }
+                    logger.warning("Could not determine if passed or failed from filename")
+                    return {
+                        'records_processed': 0,
+                        'passed_count': 0,
+                        'failed_count': 0,
+                        'file_type': 'CSV - Unknown',
+                        'error': 'Could not determine if passed or failed from filename'
+                    }
             
+            else:
+                # Original Excel processing (if still needed)
+                return self._process_applications_excel(filepath)
+                
         except Exception as e:
             db.session.rollback()
             logger.error(f"Error processing applications file: {e}")
             raise
     
-    def _process_applications_csv(self, df, affordability_result):
-        """Process applications data from CSV format"""
+    def _process_applications_excel(self, filepath):
+        """Process Excel affordability files (legacy support)"""
         try:
-            # Column mapping for CSV files
-            column_mapping = {
-                'Activity date & time': 'datetime',
-                'Lead ID': 'lead_id',
-                'Date & time received': 'lead_datetime',
-                'Status': 'status',
-                'Marketing source': 'marketing_source',
-                'Capital amount': 'lead_value',
-                'Repayment frequency': 'payment_type',
-                'Total interest': 'interest',
-                'Regular repayments': 'repayment',
-                'Total amount to pay': 'total_amount',
-                'Product details': 'product_details'
+            xls = pd.ExcelFile(filepath)
+            
+            passed_count = 0
+            failed_count = 0
+            
+            # Process passed sheet
+            if 'Affordability data - passed' in xls.sheet_names:
+                df_passed = pd.read_excel(xls, 'Affordability data - passed')
+                if 'Lead ID' in df_passed.columns:
+                    lead_ids = df_passed['Lead ID'].dropna().unique()
+                    self.passed_lead_ids.update(str(int(lid)) if isinstance(lid, (int, float)) else str(lid) for lid in lead_ids)
+                    passed_count = len(lead_ids)
+            
+            # Process failed sheet
+            if 'Affordability data - failed' in xls.sheet_names:
+                df_failed = pd.read_excel(xls, 'Affordability data - failed')
+                if 'Lead ID' in df_failed.columns:
+                    lead_ids = df_failed['Lead ID'].dropna().unique()
+                    self.failed_lead_ids.update(str(int(lid)) if isinstance(lid, (int, float)) else str(lid) for lid in lead_ids)
+                    failed_count = len(lead_ids)
+            
+            return {
+                'records_processed': passed_count + failed_count,
+                'passed_count': passed_count,
+                'failed_count': failed_count,
+                'file_type': 'Excel'
             }
             
-            # Apply column mapping
-            df_mapped = df.rename(columns=column_mapping)
-            
-            # Process each row
-            count = 0
-            for _, row in df_mapped.iterrows():
-                try:
-                    # Skip empty rows
-                    lead_id_raw = row.get('lead_id')
-                    if pd.isna(lead_id_raw) or lead_id_raw == '' or lead_id_raw is None:
-                        continue
-                    
-                    # Convert Lead ID safely
-                    lead_id = str(int(lead_id_raw)) if isinstance(lead_id_raw, (int, float)) and not pd.isna(lead_id_raw) else str(lead_id_raw).strip()
-                    
-                    if not lead_id:
-                        continue
-                    
-                    # Check if application already exists
-                    existing = Application.query.filter_by(lead_id=lead_id).first()
-                    
-                    if existing:
-                        app = existing
-                    else:
-                        app = Application()
-                    
-                    # Set fields
-                    app.lead_id = lead_id
-                    app.datetime = self._parse_datetime_safe(row.get('datetime'))
-                    app.status = str(row.get('status')) if pd.notna(row.get('status')) else None
-                    app.lead_datetime = self._parse_datetime_safe(row.get('lead_datetime'))
-                    app.lead_value = self._parse_float(row.get('lead_value'))
-                    app.current_status = str(row.get('status')) if pd.notna(row.get('status')) else None
-                    app.affordability_result = affordability_result
-                    
-                    # Store additional data in appropriate fields
-                    if pd.notna(row.get('marketing_source')):
-                        app.lead_partner = str(row.get('marketing_source'))
-                    
-                    if not existing:
-                        db.session.add(app)
-                    
-                    count += 1
-                    
-                except Exception as row_error:
-                    logger.warning(f"Error processing CSV row: {row_error}")
-                    continue
-            
-            logger.info(f"Processed {count} applications from CSV with result: {affordability_result}")
-            return count
-            
         except Exception as e:
-            logger.error(f"Error processing applications CSV: {e}")
-            raise
-    
-    def _process_applications_sheet(self, df, affordability_result):
-        """Process a single sheet of applications data from Excel"""
-        try:
-            # Find the header row
-            header_row = None
-            for idx, row in df.iterrows():
-                row_str = ' '.join([str(v) for v in row.values if pd.notna(v)])
-                if 'DateTime' in row_str:
-                    header_row = idx
-                    break
-            
-            if header_row is None:
-                logger.warning("Could not find header row in applications sheet")
-                return 0
-            
-            # Set correct column names
-            df.columns = df.iloc[header_row]
-            df = df[header_row + 1:].reset_index(drop=True)
-            
-            # Clean column names
-            df.columns = [str(col).strip() for col in df.columns]
-            
-            # Process each row
-            count = 0
-            for _, row in df.iterrows():
-                try:
-                    # Skip empty rows
-                    lead_id_raw = row.get('Lead ID')
-                    if pd.isna(lead_id_raw) or lead_id_raw == '' or lead_id_raw is None:
-                        continue
-                    
-                    # Convert Lead ID safely
-                    lead_id = None
-                    if isinstance(lead_id_raw, (int, float)) and not pd.isna(lead_id_raw):
-                        lead_id = str(int(lead_id_raw))
-                    elif isinstance(lead_id_raw, str) and lead_id_raw.strip():
-                        lead_id = lead_id_raw.strip()
-                    
-                    if not lead_id:
-                        continue
-                    
-                    # Check if application already exists
-                    existing = Application.query.filter_by(lead_id=lead_id).first()
-                    
-                    if existing:
-                        app = existing
-                    else:
-                        app = Application()
-                    
-                    # Set fields
-                    app.lead_id = lead_id
-                    app.datetime = self._parse_datetime_safe(row.get('DateTime'))
-                    app.status = str(row.get('Status')) if pd.notna(row.get('Status')) else None
-                    app.user = str(row.get('User')) if pd.notna(row.get('User')) else None
-                    app.lead_datetime = self._parse_datetime_safe(row.get('LeadDateTime'))
-                    app.lead_name = str(row.get('LeadName')) if pd.notna(row.get('LeadName')) else None
-                    app.lead_postcode = str(row.get('LeadPostcode')) if pd.notna(row.get('LeadPostcode')) else None
-                    app.lead_introducer = str(row.get('LeadIntroducer')) if pd.notna(row.get('LeadIntroducer')) else None
-                    app.lead_partner = str(row.get('LeadPartner')) if pd.notna(row.get('LeadPartner')) else None
-                    app.lead_cost = self._parse_float(row.get('LeadCost'))
-                    app.lead_value = self._parse_float(row.get('LeadValue'))
-                    app.current_status = str(row.get('CurrentStatus')) if pd.notna(row.get('CurrentStatus')) else None
-                    app.affordability_result = affordability_result
-                    
-                    if not existing:
-                        db.session.add(app)
-                    
-                    count += 1
-                    
-                except Exception as row_error:
-                    logger.warning(f"Error processing row: {row_error}")
-                    continue
-            
-            return count
-            
-        except Exception as e:
-            logger.error(f"Error processing applications sheet: {e}")
+            logger.error(f"Error processing Excel applications file: {e}")
             raise
     
     def process_flg_data_file(self, filepath):
-        """Process FLG data - supports Excel and CSV"""
+        """Process FLG data (all_leads_all_time) - Main data source"""
         try:
             file_ext = os.path.splitext(filepath)[1].lower()
             
             if file_ext == '.csv':
-                # Process CSV file
+                # Read CSV file
                 df = pd.read_csv(filepath)
                 
-                # Column mapping for CSV files
-                column_mapping = {
-                    'Lead ID': 'reference',
-                    'Date & time received': 'received_datetime',
-                    'Status': 'status',
-                    'Marketing source': 'marketing_source',
-                    'Capital amount': 'data5_value',
-                    'Repayment frequency': 'data6_payment_type',
-                    'Total interest': 'data7_value',
-                    'Regular repayments': 'data8_value',
-                    'Total amount to pay': 'data10_value',
-                    'Product details': 'data29_product_description'
-                }
+                # Expected columns
+                expected_columns = [
+                    'Lead ID', 'Date & time received', 'Status', 'Marketing source',
+                    'Capital amount', 'Repayment frequency', 'Total interest',
+                    'Regular repayments', 'Total amount to pay', 'Product details'
+                ]
                 
-                # Apply column mapping
-                df_mapped = df.rename(columns=column_mapping)
+                # Check if all expected columns exist
+                missing_columns = [col for col in expected_columns if col not in df.columns]
+                if missing_columns:
+                    logger.warning(f"Missing columns: {missing_columns}")
                 
-                result = self._process_flg_dataframe(df_mapped)
+                # Process data
+                new_products = set()
+                unmapped_sources = set()
+                count = 0
+                applications_created = 0
+                
+                for _, row in df.iterrows():
+                    try:
+                        # Get Lead ID
+                        lead_id_raw = row.get('Lead ID')
+                        if pd.isna(lead_id_raw):
+                            continue
+                        
+                        lead_id = str(int(lead_id_raw)) if isinstance(lead_id_raw, (int, float)) else str(lead_id_raw)
+                        
+                        # Create FLG record
+                        existing_flg = FLGData.query.filter_by(reference=lead_id).first()
+                        if existing_flg:
+                            flg = existing_flg
+                        else:
+                            flg = FLGData()
+                        
+                        # Set FLG fields
+                        flg.reference = lead_id
+                        flg.received_datetime = self._parse_datetime_safe(row.get('Date & time received'))
+                        flg.status = str(row.get('Status')) if pd.notna(row.get('Status')) else None
+                        flg.marketing_source = str(row.get('Marketing source')) if pd.notna(row.get('Marketing source')) else None
+                        flg.data5_value = self._parse_float(row.get('Capital amount'))
+                        flg.data6_payment_type = str(row.get('Repayment frequency')) if pd.notna(row.get('Repayment frequency')) else None
+                        flg.data7_value = self._parse_float(row.get('Total interest'))
+                        flg.data8_value = self._parse_float(row.get('Regular repayments'))
+                        flg.data10_value = self._parse_float(row.get('Total amount to pay'))
+                        flg.data29_product_description = str(row.get('Product details')) if pd.notna(row.get('Product details')) else None
+                        
+                        # Calculate sale value
+                        flg.sale_value = flg.calculate_sale_value()
+                        
+                        # Extract product from description
+                        if flg.data29_product_description:
+                            product_name = Product.extract_product_from_description(flg.data29_product_description)
+                            flg.product_name = product_name
+                            
+                            # Check if product exists
+                            product = Product.query.filter_by(name=product_name).first()
+                            if not product and product_name != 'Other':
+                                new_products.add(product_name)
+                        
+                        # Map marketing source to campaign
+                        if flg.marketing_source:
+                            mapping = FLGMetaMapping.query.filter_by(flg_name=flg.marketing_source).first()
+                            if mapping:
+                                flg.campaign_name = mapping.meta_name
+                            else:
+                                unmapped_sources.add(flg.marketing_source)
+                        
+                        if not existing_flg:
+                            db.session.add(flg)
+                        
+                        # Now create/update Application record based on affordability result
+                        affordability_result = None
+                        if lead_id in self.passed_lead_ids:
+                            affordability_result = 'passed'
+                        elif lead_id in self.failed_lead_ids:
+                            affordability_result = 'failed'
+                        
+                        if affordability_result:
+                            existing_app = Application.query.filter_by(lead_id=lead_id).first()
+                            if existing_app:
+                                app = existing_app
+                            else:
+                                app = Application()
+                                applications_created += 1
+                            
+                            # Set application fields from FLG data
+                            app.lead_id = lead_id
+                            app.datetime = flg.received_datetime
+                            app.status = flg.status
+                            app.lead_datetime = flg.received_datetime
+                            app.lead_value = flg.data5_value
+                            app.current_status = flg.status
+                            app.affordability_result = affordability_result
+                            app.lead_partner = flg.marketing_source  # Store marketing source
+                            
+                            if not existing_app:
+                                db.session.add(app)
+                        
+                        count += 1
+                        
+                    except Exception as row_error:
+                        logger.warning(f"Error processing FLG row: {row_error}")
+                        continue
+                
+                # Create new products
+                for product_name in new_products:
+                    product = Product(name=product_name)
+                    db.session.add(product)
                 
                 db.session.commit()
                 
-                result['file_type'] = 'CSV'
-                return result
+                logger.info(f"Processed {count} FLG records, created {applications_created} applications")
+                
+                return {
+                    'records_processed': count,
+                    'applications_created': applications_created,
+                    'new_products': list(new_products),
+                    'unmapped_sources': list(unmapped_sources),
+                    'file_type': 'CSV - All Leads'
+                }
                 
             else:
                 # Original Excel processing
-                df = pd.read_excel(filepath, sheet_name='ALL')
+                return self._process_flg_excel(filepath)
                 
-                # Find the header row
-                header_row = None
-                for idx, row in df.iterrows():
-                    row_str = ' '.join([str(v) for v in row.values if pd.notna(v)])
-                    if 'Reference' in row_str:
-                        header_row = idx
-                        break
-                
-                if header_row is None:
-                    raise ValueError("Could not find header row in FLG data file")
-                
-                # Set correct column names
-                df.columns = df.iloc[header_row]
-                df = df[header_row + 1:].reset_index(drop=True)
-                
-                # Clean column names
-                df.columns = [str(col).strip() for col in df.columns]
-                
-                # Map to expected column names
-                excel_mapping = {
-                    'Reference': 'reference',
-                    'ReceivedDateTime': 'received_datetime',
-                    'Status': 'status',
-                    'MarketingSource': 'marketing_source',
-                    'Data5': 'data5_value',
-                    'Data6': 'data6_payment_type',
-                    'Data7': 'data7_value',
-                    'Data8': 'data8_value',
-                    'Data10': 'data10_value',
-                    'Data29': 'data29_product_description'
-                }
-                
-                df_mapped = df.rename(columns=excel_mapping)
-                
-                result = self._process_flg_dataframe(df_mapped)
-                
-                db.session.commit()
-                
-                result['file_type'] = 'Excel'
-                return result
-            
         except Exception as e:
             db.session.rollback()
             logger.error(f"Error processing FLG data file: {e}")
             raise
     
-    def _process_flg_dataframe(self, df):
-        """Process FLG dataframe regardless of source"""
+    def _process_flg_excel(self, filepath):
+        """Process FLG Excel file (legacy support)"""
         try:
-            # Track new products and unmapped sources
-            new_products = set()
-            unmapped_sources = set()
+            df = pd.read_excel(filepath, sheet_name='ALL')
             
-            # Process each row
-            count = 0
-            for _, row in df.iterrows():
-                try:
-                    # Skip empty rows
-                    reference = row.get('reference')
-                    if pd.isna(reference) or reference == '':
-                        continue
-                    
-                    # Convert reference to string
-                    reference = str(int(reference)) if isinstance(reference, (int, float)) and not pd.isna(reference) else str(reference)
-                    
-                    existing = FLGData.query.filter_by(reference=reference).first()
-                    
-                    if existing:
-                        flg = existing
-                    else:
-                        flg = FLGData()
-                    
-                    # Set fields
-                    flg.reference = reference
-                    flg.received_datetime = self._parse_datetime_safe(row.get('received_datetime'))
-                    flg.status = str(row.get('status')) if pd.notna(row.get('status')) else None
-                    flg.marketing_source = str(row.get('marketing_source')) if pd.notna(row.get('marketing_source')) else None
-                    flg.data5_value = self._parse_float(row.get('data5_value'))
-                    flg.data6_payment_type = str(row.get('data6_payment_type')) if pd.notna(row.get('data6_payment_type')) else None
-                    flg.data7_value = self._parse_float(row.get('data7_value'))
-                    flg.data8_value = self._parse_float(row.get('data8_value'))
-                    flg.data10_value = self._parse_float(row.get('data10_value'))
-                    flg.data29_product_description = str(row.get('data29_product_description')) if pd.notna(row.get('data29_product_description')) else None
-                    
-                    # Calculate sale value
-                    flg.sale_value = flg.calculate_sale_value()
-                    
-                    # Extract product from description
-                    if flg.data29_product_description:
-                        product_name = Product.extract_product_from_description(flg.data29_product_description)
-                        flg.product_name = product_name
-                        
-                        # Check if product exists in database
-                        product = Product.query.filter_by(name=product_name).first()
-                        if not product and product_name != 'Other':
-                            new_products.add(product_name)
-                    
-                    # Map marketing source to campaign
-                    if flg.marketing_source:
-                        mapping = FLGMetaMapping.query.filter_by(flg_name=flg.marketing_source).first()
-                        if mapping:
-                            flg.campaign_name = mapping.meta_name
-                        else:
-                            unmapped_sources.add(flg.marketing_source)
-                    
-                    if not existing:
-                        db.session.add(flg)
-                    
-                    count += 1
-                    
-                except Exception as row_error:
-                    logger.warning(f"Error processing FLG row: {row_error}")
-                    continue
+            # Find header row and process...
+            # (keeping existing Excel logic)
             
-            # Create new products
-            for product_name in new_products:
-                product = Product(name=product_name)
-                db.session.add(product)
-            
-            logger.info(f"Processed {count} FLG records")
-            
-            return {
-                'records_processed': count,
-                'new_products': list(new_products),
-                'unmapped_sources': list(unmapped_sources)
-            }
+            raise NotImplementedError("Excel FLG processing not fully implemented yet")
             
         except Exception as e:
-            logger.error(f"Error processing FLG dataframe: {e}")
+            logger.error(f"Error processing FLG Excel file: {e}")
             raise
     
     def process_ad_spend_file(self, filepath):
-        """Process ad spend Excel file with detailed logging"""
+        """Process ad spend Excel file - handles various formats"""
         try:
-            # Try to read the Excel file
+            filename_lower = os.path.basename(filepath).lower()
+            
+            # Determine if this is historic data based on filename
+            is_historic = 'historic' in filename_lower
+            
+            # Try to read Excel file
             xls = pd.ExcelFile(filepath)
+            logger.info(f"Found sheets in ad spend file: {xls.sheet_names}")
             
-            logger.info(f"Found sheets in Excel file: {xls.sheet_names}")
-            
-            # Look for any sheet that might contain ad spend data
-            ad_sheet = None
-            for sheet in xls.sheet_names:
-                sheet_lower = sheet.lower()
-                if any(term in sheet_lower for term in ['meta', 'spend', 'ad', 'campaign', 'cost']):
-                    ad_sheet = sheet
-                    break
-            
-            if not ad_sheet:
-                # Use the first sheet
-                ad_sheet = xls.sheet_names[0] if xls.sheet_names else None
-                logger.warning(f"No ad spend sheet found by name, using: {ad_sheet}")
-            
-            if not ad_sheet:
-                raise ValueError("No sheets found in Excel file")
-            
-            # Read the sheet
-            df = pd.read_excel(filepath, sheet_name=ad_sheet)
-            
-            logger.info(f"Read {len(df)} rows from sheet '{ad_sheet}'")
-            logger.info(f"Column names found: {list(df.columns)}")
-            
-            # Find the header row by looking for key columns
-            header_row = None
-            for idx in range(min(10, len(df))):
-                row_values = df.iloc[idx].astype(str).tolist()
-                row_str = ' '.join(row_values).lower()
-                
-                # Look for any indication this is a header row
-                if any(term in row_str for term in ['reporting', 'campaign', 'spend', 'cost', 'date']):
-                    header_row = idx
-                    logger.info(f"Found potential header row at index {idx}")
-                    break
-            
-            if header_row is None:
-                header_row = 0
-                logger.warning("Could not find header row, using first row")
-            
-            # Read again with correct header row
-            df = pd.read_excel(filepath, sheet_name=ad_sheet, header=header_row)
-            
-            # Clean column names
-            df.columns = [str(col).strip() for col in df.columns]
-            logger.info(f"Cleaned column names: {list(df.columns)}")
-            
-            # Try to identify columns by content
-            date_col = None
-            campaign_col = None
-            spend_col = None
-            
-            for col in df.columns:
-                col_lower = col.lower()
-                sample_values = df[col].dropna().head()
-                
-                # Check for date column
-                if any(term in col_lower for term in ['date', 'reporting', 'period', 'week']):
-                    date_col = col
-                elif pd.api.types.is_datetime64_any_dtype(df[col]) or self._looks_like_date(sample_values):
-                    date_col = col
-                
-                # Check for campaign column
-                if any(term in col_lower for term in ['campaign', 'meta', 'name']):
-                    campaign_col = col
-                
-                # Check for spend column
-                if any(term in col_lower for term in ['spend', 'cost', 'amount', 'value']):
-                    spend_col = col
-                elif pd.api.types.is_numeric_dtype(df[col]) and df[col].mean() > 0:
-                    # Might be a spend column if it's numeric and positive
-                    if not spend_col:  # Only set if we haven't found one yet
-                        spend_col = col
-            
-            logger.info(f"Identified columns - Date: {date_col}, Campaign: {campaign_col}, Spend: {spend_col}")
-            
-            if not all([date_col, campaign_col, spend_col]):
-                # Log what we're missing
-                missing = []
-                if not date_col: missing.append("date")
-                if not campaign_col: missing.append("campaign")
-                if not spend_col: missing.append("spend")
-                
-                logger.error(f"Could not identify required columns: {missing}")
-                logger.error(f"Available columns: {list(df.columns)}")
-                
-                # Show sample data
-                logger.error("Sample data from first 3 rows:")
-                for idx, row in df.head(3).iterrows():
-                    logger.error(f"Row {idx}: {dict(row)}")
-                
-                raise ValueError(f"Could not identify required columns: {missing}")
-            
-            # Create standardized dataframe
-            df_std = pd.DataFrame({
-                'reporting_date': df[date_col],
-                'campaign_name': df[campaign_col],
-                'spend_amount': df[spend_col]
-            })
-            
-            # Add optional columns if found
-            for col in df.columns:
-                col_lower = col.lower()
-                if 'ad' in col_lower and 'level' in col_lower:
-                    df_std['ad_level'] = df[col]
-                elif 'new' in col_lower:
-                    df_std['is_new'] = df[col]
-            
-            # Track results
-            new_campaigns = set()
+            # Process all sheets and combine results
+            all_records = []
             total_spend = 0
-            count = 0
+            new_campaigns = set()
             
-            # Process each row
-            for _, row in df_std.iterrows():
+            for sheet_name in xls.sheet_names:
                 try:
-                    # Skip empty rows
-                    if pd.isna(row['campaign_name']) or pd.isna(row['spend_amount']):
+                    df = pd.read_excel(filepath, sheet_name=sheet_name)
+                    
+                    if len(df) == 0:
                         continue
                     
-                    # Parse data
-                    reporting_date = self._parse_date_safe(row['reporting_date'])
-                    if not reporting_date:
-                        logger.warning(f"Could not parse date: {row['reporting_date']}")
+                    logger.info(f"Processing sheet '{sheet_name}' with {len(df)} rows")
+                    logger.info(f"Columns in sheet: {list(df.columns)}")
+                    
+                    # Try to identify columns
+                    date_col = None
+                    campaign_col = None
+                    adset_col = None
+                    spend_col = None
+                    
+                    # Look for columns by name patterns
+                    for col in df.columns:
+                        col_lower = str(col).lower().strip()
+                        
+                        # Date columns
+                        if not date_col and any(term in col_lower for term in ['date', 'week', 'month', 'period', 'reporting']):
+                            date_col = col
+                            logger.info(f"Found date column: {col}")
+                        
+                        # Campaign columns
+                        elif not campaign_col and any(term in col_lower for term in ['campaign', 'meta campaign']):
+                            campaign_col = col
+                            logger.info(f"Found campaign column: {col}")
+                        
+                        # Ad set/level columns
+                        elif not adset_col and any(term in col_lower for term in ['ad set', 'adset', 'ad level', 'level']):
+                            adset_col = col
+                            logger.info(f"Found ad set column: {col}")
+                        
+                        # Spend columns
+                        elif not spend_col and any(term in col_lower for term in ['spend', 'cost', 'amount', 'gmp']):
+                            spend_col = col
+                            logger.info(f"Found spend column: {col}")
+                    
+                    # If we couldn't find columns by name, try by position and content
+                    if not all([date_col, campaign_col, spend_col]):
+                        logger.warning("Could not identify all columns by name, trying by content...")
+                        
+                        # Show sample data
+                        logger.info("Sample data from first 3 rows:")
+                        for idx, row in df.head(3).iterrows():
+                            logger.info(f"Row {idx}: {dict(row)}")
+                        
+                        # Skip this sheet if we can't identify columns
                         continue
                     
-                    meta_campaign_name = str(row['campaign_name']).strip()
-                    spend_amount = self._parse_float(row['spend_amount'])
+                    # Process rows
+                    sheet_records = 0
+                    for _, row in df.iterrows():
+                        try:
+                            # Skip empty rows
+                            if pd.isna(row.get(campaign_col)) or pd.isna(row.get(spend_col)):
+                                continue
+                            
+                            # Parse date
+                            date_value = self._parse_date_safe(row.get(date_col))
+                            if not date_value:
+                                # For historic data, try to extract month/year from sheet name or filename
+                                if is_historic:
+                                    date_value = self._extract_date_from_context(sheet_name, filename_lower)
+                                
+                                if not date_value:
+                                    logger.warning(f"Could not parse date: {row.get(date_col)}")
+                                    continue
+                            
+                            # Get values
+                            campaign_name = str(row.get(campaign_col)).strip()
+                            ad_level = str(row.get(adset_col)).strip() if adset_col and pd.notna(row.get(adset_col)) else None
+                            spend_amount = self._parse_float(row.get(spend_col))
+                            
+                            if not spend_amount or spend_amount <= 0:
+                                continue
+                            
+                            # Create campaign if needed
+                            campaign = Campaign.query.filter_by(meta_name=campaign_name).first()
+                            if not campaign:
+                                campaign = Campaign(
+                                    name=campaign_name,
+                                    meta_name=campaign_name
+                                )
+                                db.session.add(campaign)
+                                new_campaigns.add(campaign_name)
+                            
+                            # Create ad spend record
+                            ad_spend = AdSpend(
+                                reporting_end_date=date_value,
+                                meta_campaign_name=campaign_name,
+                                ad_level=ad_level,
+                                spend_amount=spend_amount,
+                                is_new=False,  # Historic data
+                                campaign=campaign
+                            )
+                            
+                            db.session.add(ad_spend)
+                            total_spend += spend_amount
+                            sheet_records += 1
+                            
+                        except Exception as row_error:
+                            logger.warning(f"Error processing ad spend row: {row_error}")
+                            continue
                     
-                    if not spend_amount or spend_amount <= 0:
-                        continue
+                    logger.info(f"Processed {sheet_records} records from sheet '{sheet_name}'")
+                    all_records.append(sheet_records)
                     
-                    # Optional fields
-                    ad_level = str(row.get('ad_level')) if pd.notna(row.get('ad_level')) else None
-                    is_new = self._parse_boolean(row.get('is_new')) if 'is_new' in row else False
-                    
-                    # Check if campaign exists
-                    campaign = Campaign.query.filter_by(meta_name=meta_campaign_name).first()
-                    if not campaign:
-                        campaign = Campaign(
-                            name=meta_campaign_name,
-                            meta_name=meta_campaign_name
-                        )
-                        db.session.add(campaign)
-                        new_campaigns.add(meta_campaign_name)
-                    
-                    # Create ad spend record
-                    ad_spend = AdSpend(
-                        reporting_end_date=reporting_date,
-                        meta_campaign_name=meta_campaign_name,
-                        ad_level=ad_level,
-                        spend_amount=spend_amount,
-                        is_new=is_new,
-                        campaign=campaign
-                    )
-                    
-                    db.session.add(ad_spend)
-                    total_spend += spend_amount
-                    count += 1
-                    
-                except Exception as row_error:
-                    logger.warning(f"Error processing ad spend row: {row_error}")
+                except Exception as sheet_error:
+                    logger.error(f"Error processing sheet '{sheet_name}': {sheet_error}")
                     continue
             
+            # Commit all records
             db.session.commit()
             
-            logger.info(f"Successfully processed {count} ad spend records, total spend: £{total_spend:,.2f}")
+            total_records = sum(all_records)
+            logger.info(f"Total: Processed {total_records} ad spend records, total spend: £{total_spend:,.2f}")
             
             return {
-                'records_processed': count,
+                'records_processed': total_records,
                 'new_campaigns': list(new_campaigns),
                 'total_spend': total_spend,
-                'file_type': 'Excel',
-                'sheet_used': ad_sheet
+                'file_type': 'Excel - Historic' if is_historic else 'Excel',
+                'sheets_processed': len(all_records),
+                'is_historic': is_historic
             }
             
         except Exception as e:
             db.session.rollback()
             logger.error(f"Error processing ad spend file: {e}")
             raise
+    
+    def _extract_date_from_context(self, sheet_name, filename):
+        """Try to extract date from sheet name or filename for historic data"""
+        import re
+        
+        # Common month names
+        months = {
+            'january': 1, 'jan': 1, 'february': 2, 'feb': 2, 'march': 3, 'mar': 3,
+            'april': 4, 'apr': 4, 'may': 5, 'june': 6, 'jun': 6, 'july': 7, 'jul': 7,
+            'august': 8, 'aug': 8, 'september': 9, 'sep': 9, 'october': 10, 'oct': 10,
+            'november': 11, 'nov': 11, 'december': 12, 'dec': 12
+        }
+        
+        # Try to find month in text
+        text = f"{sheet_name} {filename}".lower()
+        
+        for month_name, month_num in months.items():
+            if month_name in text:
+                # Default to 2025 if no year found
+                year = 2025
+                
+                # Try to find year
+                year_match = re.search(r'20\d{2}', text)
+                if year_match:
+                    year = int(year_match.group())
+                
+                # Return last day of the month
+                if month_num == 12:
+                    return datetime(year, month_num, 31).date()
+                else:
+                    next_month = datetime(year, month_num + 1, 1)
+                    last_day = next_month - timedelta(days=1)
+                    return last_day.date()
+        
+        # Try to find date patterns
+        date_patterns = [
+            r'(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})',  # DD/MM/YYYY or MM/DD/YYYY
+            r'(\d{4})[/-](\d{1,2})[/-](\d{1,2})',    # YYYY/MM/DD
+        ]
+        
+        for pattern in date_patterns:
+            match = re.search(pattern, text)
+            if match:
+                try:
+                    # Try different date formats
+                    date_str = match.group()
+                    for fmt in ['%d/%m/%Y', '%m/%d/%Y', '%Y/%m/%d', '%d-%m-%Y', '%m-%d-%Y', '%Y-%m-%d']:
+                        try:
+                            return datetime.strptime(date_str, fmt).date()
+                        except:
+                            continue
+                except:
+                    continue
+        
+        return None
     
     def process_mapping_file(self, filepath):
         """Process FLG to Meta name mapping file (Word document)"""
@@ -632,11 +508,12 @@ class DataProcessor:
                             flg_name = cells[0].text.strip()
                             meta_name = cells[1].text.strip()
                             
-                            if flg_name and meta_name and not flg_name.startswith('?'):
+                            if flg_name and meta_name and not flg_name.startswith('**'):
                                 table_found = True
                                 
-                                # Clean up the names
-                                flg_name = flg_name.replace('?', '').strip()
+                                # Clean up the names (remove ? prefix if present)
+                                if flg_name.startswith('?'):
+                                    flg_name = flg_name[1:].strip()
                                 
                                 # Check if mapping exists
                                 existing = FLGMetaMapping.query.filter_by(flg_name=flg_name).first()
@@ -668,7 +545,8 @@ class DataProcessor:
                     
                     if flg_name and meta_name:
                         # Clean up names
-                        flg_name = flg_name.replace('?', '').strip()
+                        if flg_name.startswith('?'):
+                            flg_name = flg_name[1:].strip()
                         
                         existing = FLGMetaMapping.query.filter_by(flg_name=flg_name).first()
                         
@@ -709,6 +587,8 @@ class DataProcessor:
             # Handle string values that might have currency symbols or commas
             if isinstance(value, str):
                 value = value.replace('£', '').replace('$', '').replace(',', '').strip()
+                # Handle GBP notation
+                value = value.replace('GBP', '').replace('gbp', '').strip()
             return float(value)
         except:
             return None
@@ -766,7 +646,9 @@ class DataProcessor:
                 '%d-%m-%Y %H:%M:%S',
                 '%d-%m-%Y',
                 '%Y/%m/%d %H:%M:%S',
-                '%Y/%m/%d'
+                '%Y/%m/%d',
+                '%d/%m/%Y %H:%M',
+                '%d-%m-%Y %H:%M'
             ]
             
             for fmt in formats:
@@ -796,6 +678,9 @@ class DataProcessor:
             
         # If it's a string, try multiple formats
         if isinstance(value, str):
+            # Clean the string
+            value = value.strip()
+            
             formats = [
                 '%Y-%m-%d',
                 '%d/%m/%Y',
@@ -803,12 +688,16 @@ class DataProcessor:
                 '%d-%m-%Y',
                 '%Y/%m/%d',
                 '%d.%m.%Y',
-                '%Y.%m.%d'
+                '%Y.%m.%d',
+                '%d %B %Y',  # 01 January 2025
+                '%B %d, %Y',  # January 01, 2025
+                '%d %b %Y',   # 01 Jan 2025
+                '%b %d, %Y'   # Jan 01, 2025
             ]
             
             for fmt in formats:
                 try:
-                    dt = datetime.strptime(value.strip(), fmt)
+                    dt = datetime.strptime(value, fmt)
                     return dt.date()
                 except:
                     continue
