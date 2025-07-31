@@ -529,6 +529,52 @@ def debug_database_check():
         logger.error(f"Error in database check: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/debug/ad-spend-details')
+def debug_ad_spend_details():
+    """Debug endpoint to check ad spend details"""
+    try:
+        # Get ad spend by campaign
+        campaign_spending = db.session.query(
+            AdSpend.meta_campaign_name,
+            func.count(AdSpend.id).label('record_count'),
+            func.sum(AdSpend.spend_amount).label('total_spend'),
+            func.min(AdSpend.reporting_end_date).label('earliest_date'),
+            func.max(AdSpend.reporting_end_date).label('latest_date')
+        ).group_by(AdSpend.meta_campaign_name).all()
+        
+        # Get recent ad spend records
+        recent_records = AdSpend.query.order_by(AdSpend.created_at.desc()).limit(20).all()
+        
+        # Check if there are any campaigns without ad spend
+        campaigns_without_spend = db.session.query(Campaign).outerjoin(
+            AdSpend, Campaign.id == AdSpend.campaign_id
+        ).filter(AdSpend.id.is_(None)).all()
+        
+        return jsonify({
+            'success': True,
+            'summary': {
+                'total_records': AdSpend.query.count(),
+                'total_spend': db.session.query(func.sum(AdSpend.spend_amount)).scalar() or 0,
+                'unique_campaigns': db.session.query(func.count(distinct(AdSpend.meta_campaign_name))).scalar() or 0
+            },
+            'by_campaign': [
+                {
+                    'campaign': row.meta_campaign_name,
+                    'records': row.record_count,
+                    'total_spend': float(row.total_spend or 0),
+                    'date_range': f"{row.earliest_date} to {row.latest_date}"
+                } for row in campaign_spending
+            ],
+            'recent_records': [r.to_dict() for r in recent_records],
+            'campaigns_without_spend': [c.to_dict() for c in campaigns_without_spend],
+            'database_type': 'PostgreSQL' if 'postgresql' in app.config.get('SQLALCHEMY_DATABASE_URI', '') else 'SQLite'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in ad spend details: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.errorhandler(404)
 def not_found(error):
     """Handle 404 errors"""

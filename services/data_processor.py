@@ -453,10 +453,7 @@ class DataProcessor:
             logger.error(f"Error processing FLG Excel file: {e}")
             raise
     
-
     def process_ad_spend_file(self, filepath):
-
-
         """Fixed version of process_ad_spend_file that handles various Excel formats"""
         try:
             filename_lower = os.path.basename(filepath).lower()
@@ -469,6 +466,9 @@ class DataProcessor:
             all_records = []
             total_spend = 0
             new_campaigns = set()
+            
+            # Track all ad spend records to insert
+            ad_spend_records = []
             
             for sheet_name in xls.sheet_names:
                 try:
@@ -608,6 +608,9 @@ class DataProcessor:
                             if adset_col and pd.notna(row.get(adset_col)):
                                 ad_level = str(row[adset_col]).strip()
                             
+                            # Log each record we're about to create
+                            logger.info(f"Creating ad spend record: campaign={campaign_name}, date={date_value}, amount={spend_amount}, ad_level={ad_level}")
+                            
                             # Create or get campaign
                             campaign = Campaign.query.filter_by(meta_name=campaign_name).first()
                             if not campaign:
@@ -618,6 +621,7 @@ class DataProcessor:
                                 db.session.add(campaign)
                                 db.session.flush()  # Get the ID
                                 new_campaigns.add(campaign_name)
+                                logger.info(f"Created new campaign: {campaign_name}")
                             
                             # Create ad spend record
                             ad_spend = AdSpend(
@@ -629,12 +633,12 @@ class DataProcessor:
                                 campaign_id=campaign.id
                             )
                             
-                            db.session.add(ad_spend)
+                            ad_spend_records.append(ad_spend)
                             sheet_records += 1
                             sheet_spend += spend_amount
                             
                         except Exception as e:
-                            logger.error(f"Error processing row {idx}: {e}")
+                            logger.error(f"Error processing row {idx}: {e}", exc_info=True)
                             continue
                     
                     logger.info(f"Sheet '{sheet_name}': {sheet_records} records, £{sheet_spend:,.2f} total")
@@ -642,19 +646,41 @@ class DataProcessor:
                     total_spend += sheet_spend
                     
                 except Exception as e:
-                    logger.error(f"Error processing sheet '{sheet_name}': {e}")
+                    logger.error(f"Error processing sheet '{sheet_name}': {e}", exc_info=True)
                     continue
             
-            # Commit all changes
-            db.session.commit()
+            # Now bulk insert all ad spend records
+            if ad_spend_records:
+                logger.info(f"Bulk inserting {len(ad_spend_records)} ad spend records")
+                try:
+                    # Add all records to session
+                    for record in ad_spend_records:
+                        db.session.add(record)
+                    
+                    # Commit all changes
+                    db.session.commit()
+                    logger.info("Successfully committed all ad spend records")
+                    
+                    # Verify the data was saved
+                    verify_count = AdSpend.query.count()
+                    verify_sum = db.session.query(func.sum(AdSpend.spend_amount)).scalar() or 0
+                    logger.info(f"Database verification - Total records in DB: {verify_count}, Total spend in DB: £{verify_sum:,.2f}")
+                    
+                    # Also check just the records we added
+                    if new_campaigns:
+                        for campaign_name in new_campaigns:
+                            campaign_spend = db.session.query(func.sum(AdSpend.spend_amount)).filter_by(meta_campaign_name=campaign_name).scalar() or 0
+                            logger.info(f"Campaign '{campaign_name}' total spend: £{campaign_spend:,.2f}")
+                    
+                except Exception as e:
+                    logger.error(f"Error committing ad spend records: {e}", exc_info=True)
+                    db.session.rollback()
+                    raise
+            else:
+                logger.warning("No ad spend records were created from the file")
             
             total_records = sum(all_records)
             logger.info(f"TOTAL: {total_records} records, £{total_spend:,.2f} spend")
-            
-            # Verify the data was saved
-            verify_count = AdSpend.query.count()
-            verify_sum = db.session.query(func.sum(AdSpend.spend_amount)).scalar() or 0
-            logger.info(f"Database verification - Records: {verify_count}, Total spend: £{verify_sum:,.2f}")
             
             return {
                 'records_processed': total_records,
@@ -668,10 +694,7 @@ class DataProcessor:
             db.session.rollback()
             logger.error(f"Error processing ad spend file: {e}", exc_info=True)
             raise
-
-
-
-        
+    
     def _extract_date_from_context(self, sheet_name, filename):
         """Try to extract date from sheet name or filename for historic data"""
         import re

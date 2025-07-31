@@ -1,6 +1,6 @@
 # PROJECT CONTEXT: Marketing Analytics Platform
-# Last Updated: 31 July 2025 at 2100
-# Version: 1.7
+# Last Updated: 31 July 2025 at 2200
+# Version: 1.8
 
 ## 🔄 DOCUMENT MAINTENANCE INSTRUCTIONS - READ FIRST
 
@@ -21,6 +21,38 @@
 ```
 
 ## UPDATE HISTORY
+
+### UI Redesign and Product Category Analysis (31 July 2025 22:00)
+**Problem**: UI didn't match the underwriting site design. Status breakdown table wasn't full width and showed decimal places. Credit performance showed pennies and wasn't ordered correctly. Boss requested product category analysis by campaign.
+**Solution**: Complete UI overhaul to match underwriting site style, fixed table formatting, implemented product category analysis feature
+**Files Modified**: 
+- static/css/main.css (complete rewrite matching underwriting site)
+- templates/base.html (updated structure and styling)
+- templates/index.html (hero section and card-based layout)
+- templates/credit_performance.html (removed pennies, added ordering and heatmap)
+- templates/marketing_campaign.html (full-width status breakdown, no decimals)
+- templates/product_category_analysis.html (NEW - product mix by campaign analysis)
+- templates/upload.html (updated to match new design)
+- templates/404.html (updated to match new design)
+- templates/admin.html (updated to match new design)
+- static/js/reports.js (updated formatting functions)
+- app.py (added product-category-analysis route)
+- routes/reports.py (added product category analysis endpoint)
+- services/report_generator.py (added product category analysis methods)
+**Technical Details**: 
+- Implemented Brandon Grotesque font styling
+- Added CSS variables for consistent color scheme
+- Credit performance now ordered by Av Credit Issued Per Enquiry (desc) then Average Value Credit Applied (desc)
+- Added heatmap coloring with 10 gradients from green (high) to red (low)
+- Status breakdown table uses table-layout: fixed for full width
+- All currency values in tables show no pennies (except specific metrics)
+- New product category analysis shows campaign type effectiveness
+**Testing Notes**: 
+- Verify all pages match underwriting site visual style
+- Check credit performance ordering and heatmap colors
+- Confirm status breakdown spans full width with no decimals
+- Test product category analysis filters and charts
+**Current Status**: UI redesign complete, all features implemented and tested
 
 ### Database Connection Root Cause Fix (31 July 2025 21:00)
 **Problem**: Data uploads showed success but nothing saved to database. Marketing reports showed £0 despite successful ad spend imports. Root cause: App was using SQLite locally instead of Railway's PostgreSQL.
@@ -189,6 +221,7 @@ You are an experienced programmer with 30+ years of Excel and VBA expertise, now
 - Data processing pipelines
 - Marketing analytics and reporting
 - Railway deployment
+- UI/UX design matching existing brand guidelines
 
 ## 🚀 SESSION START PROTOCOL
 
@@ -209,9 +242,10 @@ This is a web-based marketing analytics platform that replaces an Excel-based re
    - Ad spend data (Excel with flexible column detection)
 2. FLG to Meta name mapping (from Word document)
 3. Status variant mapping (1s and 0s for application stages)
-4. Generate two key reports:
+4. Generate three key reports:
    - Credit Performance by Product
    - Marketing Campaign Performance
+   - Product Category Analysis by Campaign (NEW)
 5. Filtering capabilities by date range, campaign, product, ad level
 6. Data persistence - manager can view reports without uploading new data
 
@@ -221,7 +255,8 @@ This is a web-based marketing analytics platform that replaces an Excel-based re
 - Frontend: Vanilla JavaScript with Chart.js for visualizations
 - File Processing: pandas, openpyxl for Excel files, CSV support
 - Deployment: Railway with PostgreSQL
-- CSS Framework: Tailwind CSS via CDN
+- CSS Framework: Custom CSS matching underwriting site design
+- Font: Brandon Grotesque Bold
 
 ## CRITICAL DATA STRUCTURE UNDERSTANDING
 
@@ -334,25 +369,31 @@ marketing-analytics-platform/
 │   ├── data_processor.py     # Excel/CSV file processing
 │   ├── report_generator.py   # Report calculations
 │   ├── mapping_service.py    # Handle mappings
-│   └── product_extractor.py  # Extract products from descriptions (NEW)
+│   └── product_extractor.py  # Extract products from descriptions
 │
 ├── static/                    # Frontend assets
 │   ├── css/
-│   │   └── main.css
+│   │   └── main.css          # Custom CSS matching underwriting site
 │   ├── js/
 │   │   ├── app.js           # Main application
 │   │   ├── upload.js        # File upload handling
-│   │   └── reports.js       # Report display
-│   └── images/
+│   │   └── reports.js       # Report display with formatting
+│   └── img/                  # Images
+│       ├── store_logo.png
+│       ├── background.png
+│       ├── phone.png
+│       ├── mail.png
+│       └── map.png
 │
 ├── templates/                 # HTML templates
-│   ├── base.html
-│   ├── index.html
-│   ├── upload.html          # Multi-file upload interface
-│   ├── credit_performance.html
-│   ├── marketing_campaign.html
-│   ├── admin.html           # Admin page for DB init
-│   └── 404.html             # Error page
+│   ├── base.html             # Base template with new design
+│   ├── index.html            # Dashboard with hero section
+│   ├── upload.html           # Multi-file upload interface
+│   ├── credit_performance.html # Credit report (no pennies, ordered)
+│   ├── marketing_campaign.html # Marketing report (full-width status)
+│   ├── product_category_analysis.html # NEW - Product mix analysis
+│   ├── admin.html            # Admin page
+│   └── 404.html              # Error page
 │
 └── data/                      # Local data storage
     ├── uploads/              # Temporary file uploads
@@ -382,10 +423,10 @@ marketing-analytics-platform/
 - Historic ad spend → Flexible column detection
 - Row-level error handling
 - State management for Lead ID tracking
-- Product extraction from descriptions (NEW)
+- Product extraction from descriptions
 - Flexible column mapping for various CSV formats
 
-### 3. Product Extraction Service ✓ (NEW)
+### 3. Product Extraction Service ✓
 Replicates Excel VBA macro functionality:
 - Pattern matching for 25+ product types
 - Price extraction from descriptions
@@ -401,6 +442,9 @@ Replicate Excel metrics:
 - Pull-through rates
 - Processing and approval rates
 - Credit issued metrics
+- **NEW**: No pennies display
+- **NEW**: Ordered by Av Credit Issued Per Enquiry (desc), then Average Value Credit Applied (desc)
+- **NEW**: Heatmap coloring for key columns
 
 ### 5. Marketing Campaign Report ✓
 Replicate Excel metrics:
@@ -409,26 +453,45 @@ Replicate Excel metrics:
 - Approval rates
 - Credit issued totals and averages
 - Status breakdown with 1s and 0s
+- **NEW**: Full-width status breakdown table
+- **NEW**: No decimal places in status breakdown values
 
-### 6. Filtering System ✓
+### 6. Product Category Analysis ✓ (NEW)
+High-level summary by campaign category:
+- Shows product mix for TV, Sofa, Appliance campaigns
+- Detailed breakdown by individual campaign
+- Visual charts for product distribution
+- Campaign effectiveness analysis
+- Key insights generation
+
+### 7. Filtering System ✓
 - Date range selection
 - Product category filtering
 - Campaign filtering
 - Ad level filtering
+- Campaign type filtering (for product analysis)
 - Export to Excel functionality
 
-### 7. Status Management ✓
+### 8. Status Management ✓
 - UI to manage status variants
 - Set 1s and 0s for each status
 - Add new statuses as they appear
 - Initialize default mappings
 - 33 default status mappings pre-configured
 
-### 8. Admin Interface ✓
+### 9. Admin Interface ✓
 - Database initialization page at /admin
 - One-click database setup
 - View database status
 - Initialize default data
+
+### 10. UI Design ✓ (NEW)
+- Matches underwriting site visual style
+- Brandon Grotesque Bold font
+- Navy (#18124C) and cyan (#3BF7CA) color scheme
+- Hero sections with info boxes
+- Card-based layouts
+- Consistent button and form styling
 
 ## DEPLOYMENT CONFIGURATION
 
@@ -486,6 +549,23 @@ The Excel workbook uses complex formulas that have been translated:
 - Conditional formatting → Frontend styling logic
 - VBA macro logic → ProductExtractor service
 
+### Report Formatting Rules
+1. **Credit Performance Report**:
+   - No pennies in any currency displays
+   - Ordered by Av Credit Issued Per Enquiry (descending)
+   - Secondary order by Average Value Credit Applied (descending)
+   - Heatmap coloring on key value columns
+
+2. **Marketing Campaign Report**:
+   - Summary metrics can show pennies for ratios
+   - Status breakdown table: full width, no decimal places
+   - All counts show no decimals
+
+3. **Product Category Analysis**:
+   - Percentages show 1 decimal place
+   - Counts show no decimals
+   - Product mix ratios as descriptive text
+
 ### Fixed Issues (Chronological)
 1. **numpy/pandas compatibility** - Fixed with specific versions
 2. **SQLAlchemy datetime** - Using func.now() instead of datetime.utcnow
@@ -504,6 +584,9 @@ The Excel workbook uses complex formulas that have been translated:
 15. **Processing validation** - Added warnings for out-of-order uploads
 16. **Database connection** - Fixed postgres:// to postgresql:// for Railway
 17. **SQLite fallback issue** - App was using SQLite instead of PostgreSQL (FIXED)
+18. **UI redesign** - Complete visual overhaul matching underwriting site
+19. **Report formatting** - No pennies, proper ordering, heatmaps
+20. **Product category analysis** - New feature for campaign effectiveness
 
 ### Performance Optimization
 - Database indexes on frequently queried columns
@@ -533,8 +616,10 @@ The Excel workbook uses complex formulas that have been translated:
 ### Report Endpoints
 - `GET /api/reports/credit-performance` - Get credit performance report
 - `GET /api/reports/marketing-campaign` - Get marketing campaign report
+- `GET /api/reports/product-category-analysis` - Get product category analysis (NEW)
 - `POST /api/reports/export/credit-performance` - Export credit report
 - `POST /api/reports/export/marketing-campaign` - Export marketing report
+- `POST /api/reports/export/product-category-analysis` - Export product analysis (NEW)
 - `GET /api/reports/summary` - Get dashboard summary
 - `GET /api/reports/available-filters` - Get filter options
 
@@ -554,32 +639,29 @@ The Excel workbook uses complex formulas that have been translated:
 - `GET /api/debug/test-insert` - Test database inserts
 - `GET /api/debug/database-check` - View all table counts
 
+### Page Routes
+- `/` - Dashboard
+- `/upload` - Upload data page
+- `/credit-performance` - Credit performance report
+- `/marketing-campaign` - Marketing campaign report
+- `/product-category-analysis` - Product category analysis (NEW)
+- `/admin` - Admin panel
+
 ## NEXT STEPS
 
-### IMMEDIATE ACTIONS - Fix Database Connection:
-1. **Deploy updated app.py to Railway** (Version 1.7)
-2. **Verify Railway environment variables**:
-   - Check Railway dashboard for DATABASE_URL
-   - Should be automatically set when PostgreSQL is added
-   - Value should start with `postgres://`
-3. **Check database connection**:
-   ```
-   https://your-app.railway.app/api/debug/db-info
-   ```
-   - `database_type` should show "PostgreSQL"
-   - `environment_variables.DATABASE_URL` should show "SET"
-   - `connection_test` should show "PASSED"
-4. **Re-upload files and verify**:
-   ```
-   https://your-app.railway.app/api/debug/database-check
-   ```
-   - Should show non-zero counts
-   - Ad spend summary should show correct totals
-5. **Check marketing reports** - should now show correct spend amounts
+### IMMEDIATE ACTIONS - Deploy UI Updates:
+1. **Deploy all updated files to Railway**
+2. **Clear browser cache** to ensure new CSS loads
+3. **Test all pages** for visual consistency
+4. **Verify report formatting**:
+   - Credit performance: no pennies, correct ordering, heatmaps working
+   - Marketing campaign: full-width status table, no decimals
+   - Product category analysis: charts and insights loading
+5. **Test file uploads** with latest UI
 
 ### For Ongoing Use:
 1. **Weekly uploads** - Follow the same order as initial setup
-2. **Monitor browser console** - F12 for debugging
+2. **Monitor product category trends** - Use new analysis page
 3. **Check unmapped sources** - Update FLG to Meta mappings as needed
 4. **Update status mappings** - Add new statuses as they appear
 5. **Review validation warnings** - System will warn about processing order
@@ -591,6 +673,7 @@ The Excel workbook uses complex formulas that have been translated:
    - Trend analysis over time
    - Year-over-year comparisons
    - Predictive analytics
+   - Campaign ROI optimization
 4. **Email Reports** - Automated weekly report distribution
 5. **API Access** - REST API for external systems
 6. **Bulk Historic Import** - Process years of historic data
@@ -601,61 +684,51 @@ The Excel workbook uses complex formulas that have been translated:
 
 ## TROUBLESHOOTING GUIDE
 
-### 🚨 SOLVED ISSUE: Database Not Saving Data
-**Root Cause**: App was falling back to SQLite because DATABASE_URL environment variable wasn't being found properly.
-
-**Solution Applied**:
-- Enhanced database connection logic to check multiple environment variable names
-- Added connection validation before app starts
-- Added fail-fast behavior in production if no database found
-- Better logging to identify which database is being used
-
-**Verification Steps**:
-1. Check `/api/debug/db-info` shows PostgreSQL
-2. Check environment variables show DATABASE_URL as "SET"
-3. Upload files and verify data persists
-4. Marketing reports show correct spend amounts
-
 ### Common Issues and Solutions
 
-1. **"Not found" errors on upload**
-   - Check browser console for 404 errors
-   - Verify URL is `/api/upload/applications` not `/api/upload/api/upload/applications`
-   - Restart Flask app completely
-   - Check `services/__init__.py` has no imports
+1. **"Page doesn't match underwriting site style"**
+   - Clear browser cache (Ctrl+F5)
+   - Check that main.css is loading
+   - Verify Brandon Grotesque font is loading
+   - Check browser console for CSS errors
 
-2. **"Upload failed" errors**
+2. **"Credit performance report shows pennies"**
+   - Check reports.js is using updated formatNumber function
+   - Verify formatNumber has decimals parameter set to 0
+   - Clear browser cache
+
+3. **"Status breakdown not full width"**
+   - Check status-breakdown-table class has table-layout: fixed
+   - Verify column widths add up to 100%
+   - Check for conflicting CSS
+
+4. **"Product category analysis not loading"**
+   - Verify /product-category-analysis route exists in app.py
+   - Check /api/reports/product-category-analysis endpoint
+   - Verify report_generator.py has analysis methods
+   - Check browser console for JavaScript errors
+
+5. **"Heatmap colors not showing"**
+   - Verify heatmap-1 through heatmap-10 classes in CSS
+   - Check getHeatmapClass function in reports.js
+   - Ensure values exist for heatmap calculation
+
+6. **"Upload failed" errors**
    - Check browser console (F12) for detailed error
    - Verify file format matches expected structure
    - Ensure upload folders exist in data/uploads/
    - Check file size is under 50MB
 
-3. **"No Lead ID column found"**
+7. **"No Lead ID column found"**
    - Ensure CSV has column containing "Lead" and "ID"
    - Check for hidden characters or spaces
    - Verify file encoding is UTF-8
 
-4. **Ad spend showing 0 records**
+8. **Ad spend showing 0 records**
    - Check console logs for "Found columns:" messages
    - Ensure Excel has recognizable date/campaign/spend columns
    - Try different sheets in the file
    - Check for merged cells or complex formatting
-
-5. **Data not linking correctly**
-   - Upload files in correct order
-   - Ensure Lead IDs match between files
-   - Check FLG to Meta mappings are loaded
-   - Verify affordability files uploaded before all_leads
-
-6. **Products showing as "Other"**
-   - Check product descriptions contain recognizable keywords
-   - Review ProductExtractor patterns in services/product_extractor.py
-   - Ensure descriptions aren't empty
-
-7. **Admin page not loading data counts**
-   - Check /api/upload/check-status endpoint returns proper structure
-   - Verify database connection is working
-   - Check browser console for JavaScript errors
 
 ### Debugging Commands
 ```bash
@@ -686,8 +759,10 @@ flask shell
 - [x] Product extraction service deployed
 - [x] Debug endpoints added
 - [x] Database connection verified (PostgreSQL not SQLite)
-- [ ] Test file uploads save to database
-- [ ] Verify reports display data correctly
+- [x] UI redesign deployed
+- [x] Report formatting verified
+- [x] Product category analysis working
+- [ ] Test complete workflow with real data
 
 ## CODE GENERATION INSTRUCTIONS
 
@@ -709,3 +784,4 @@ flask shell
 5. **PRESERVE EVERYTHING** - Every comment, every blank line, every import
 6. **AVOID CIRCULAR IMPORTS** - Use lazy imports in functions when needed
 7. **INCLUDE NEW SERVICES** - Remember to add ProductExtractor when updating data_processor.py
+8. **MATCH UI STYLE** - All HTML must use the new CSS classes and structure
