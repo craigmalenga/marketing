@@ -12,7 +12,6 @@ from flask import Flask, render_template, jsonify, request, send_file
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
-import pandas as pd
 from config import Config
 
 # Initialize Flask app
