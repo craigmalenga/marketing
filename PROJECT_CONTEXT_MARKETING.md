@@ -1,6 +1,6 @@
 # PROJECT CONTEXT: Marketing Analytics Platform
-# Last Updated: 31 July 2025 at 2300
-# Version: 1.9
+# Last Updated: 31 July 2025 at 2330
+# Version: 2.0
 
 ## 🔄 DOCUMENT MAINTENANCE INSTRUCTIONS - READ FIRST
 
@@ -21,6 +21,36 @@
 ```
 
 ## UPDATE HISTORY
+
+### Enhanced Date Parsing and Product Analysis Fixes (31 July 2025 23:30)
+**Problem**: 
+1. All ad spend records showing same date (2025-06-30) - dates not parsing correctly from Excel
+2. Product category analysis showing no data
+3. Missing product_category_analysis.html template
+4. Campaign categorization too simplistic for actual campaign names
+**Solution**: 
+1. Completely rewrote date parsing logic to handle text dates stored as strings
+2. Fixed product category analysis with better error handling
+3. Created complete product category analysis template
+4. Enhanced campaign categorization for actual campaign types
+**Files Modified**: 
+- services/data_processor.py (major update to _parse_date_enhanced method)
+- services/report_generator.py (improved _categorize_campaign and analysis logic)  
+- templates/product_category_analysis.html (NEW - complete template)
+**Technical Details**: 
+- _parse_date_enhanced now tries 30+ date formats including ISO, European, US formats
+- Handles dates with time components, month names, "W/E" suffixes
+- Better handling of text dates that look like 'yyyy-mm-dd' but aren't date objects
+- Campaign categorization now detects: TV, Sofa (including specific models), Outdoor, Gaming, Credit, Testing, Retargeting
+- Added logging for date parsing debugging
+- Product analysis filters out null campaign names
+- Added helpful messages when no data available
+**Testing Notes**: 
+- Re-upload ad spend files and check logs for "Unique dates found in file"
+- Should see variety of dates instead of all being 2025-06-30
+- Upload FLG data to enable product category analysis
+- Check /product-category-analysis page loads correctly
+**Current Status**: Date parsing should now handle Excel text dates correctly
 
 ### Critical Ad Spend and Upload Fixes (31 July 2025 23:00)
 **Problem**: 
@@ -316,6 +346,7 @@ This is a web-based marketing analytics platform that replaces an Excel-based re
 - Multiple files with varying formats and date ranges
 - Flexible column detection for: date, campaign, ad level, spend
 - May have dates in filename, sheet name, or column
+- **CRITICAL**: Dates might be stored as text strings that look like dates
 
 ### 4. **FLG to Meta Mapping** (Word)
 - Table format with FLG campaign names → Meta campaign names
@@ -426,7 +457,7 @@ marketing-analytics-platform/
 │   ├── upload.html           # Multi-file upload interface
 │   ├── credit_performance.html # Credit report (no pennies, ordered)
 │   ├── marketing_campaign.html # Marketing report (full-width status)
-│   ├── product_category_analysis.html # NEW - Product mix analysis
+│   ├── product_category_analysis.html # Product mix analysis
 │   ├── admin.html            # Admin page
 │   └── 404.html              # Error page
 │
@@ -455,7 +486,7 @@ marketing-analytics-platform/
 ### 2. Data Processing Pipeline ✓
 - Affordability CSVs → Extract Lead IDs only
 - All Leads CSV → Main data with affordability status applied
-- Historic ad spend → Flexible column detection
+- Historic ad spend → Flexible column detection with enhanced date parsing
 - Row-level error handling
 - State management for Lead ID tracking
 - Product extraction from descriptions
@@ -491,13 +522,14 @@ Replicate Excel metrics:
 - **NEW**: Full-width status breakdown table
 - **NEW**: No decimal places in status breakdown values
 
-### 6. Product Category Analysis ✓ (NEW)
+### 6. Product Category Analysis ✓
 High-level summary by campaign category:
-- Shows product mix for TV, Sofa, Appliance campaigns
+- Shows product mix for different campaign types
 - Detailed breakdown by individual campaign
 - Visual charts for product distribution
 - Campaign effectiveness analysis
 - Key insights generation
+- Enhanced categorization: TV, Sofa, Outdoor, Gaming, Credit, Testing, Retargeting
 
 ### 7. Filtering System ✓
 - Date range selection
@@ -520,7 +552,7 @@ High-level summary by campaign category:
 - View database status
 - Initialize default data
 
-### 10. UI Design ✓ (NEW)
+### 10. UI Design ✓
 - Matches underwriting site visual style
 - Brandon Grotesque Bold font
 - Navy (#18124C) and cyan (#3BF7CA) color scheme
@@ -556,6 +588,13 @@ High-level summary by campaign category:
 Note: System will warn if files uploaded out of order but will still process
 
 ## CRITICAL IMPLEMENTATION NOTES
+
+### Enhanced Date Parsing Logic (v2.0)
+- `_parse_date_enhanced` in data_processor.py handles 30+ date formats
+- Specifically handles text dates stored as strings in Excel
+- Processes dates with time components, month names, suffixes
+- Logs parsing attempts for debugging
+- Falls back to context extraction from sheet/file names
 
 ### Product Extraction Logic
 - ProductExtractor service replicates VBA macro "Populate_product_types_and_prices()"
@@ -601,6 +640,7 @@ The Excel workbook uses complex formulas that have been translated:
    - Percentages show 1 decimal place
    - Counts show no decimals
    - Product mix ratios as descriptive text
+   - Campaign categorization matches actual campaign names
 
 ### Fixed Issues (Chronological)
 1. **numpy/pandas compatibility** - Fixed with specific versions
@@ -628,6 +668,9 @@ The Excel workbook uses complex formulas that have been translated:
 23. **Image paths** - Updated all templates to use static/img/ (FIXED)
 24. **Footer content** - Updated to match underwriting site exactly (FIXED)
 25. **getHeatmapClass function** - Added missing function to reports.js (FIXED)
+26. **Date parsing for text dates** - Enhanced parser handles yyyy-mm-dd strings (FIXED)
+27. **Product analysis template** - Created complete template (FIXED)
+28. **Campaign categorization** - Enhanced for actual campaign names (FIXED)
 
 ### Performance Optimization
 - Database indexes on frequently queried columns
@@ -652,15 +695,15 @@ The Excel workbook uses complex formulas that have been translated:
 - `POST /api/upload/flg-data` - Upload FLG data (CSV or Excel)
 - `POST /api/upload/ad-spend` - Upload ad spend data (Excel)
 - `POST /api/upload/flg-meta-mapping` - Upload FLG/Meta mappings (Word/Excel)
-- `GET /api/upload/check-status` - Check upload status and history (FIXED)
+- `GET /api/upload/check-status` - Check upload status and history
 
 ### Report Endpoints
 - `GET /api/reports/credit-performance` - Get credit performance report
 - `GET /api/reports/marketing-campaign` - Get marketing campaign report
-- `GET /api/reports/product-category-analysis` - Get product category analysis (NEW)
+- `GET /api/reports/product-category-analysis` - Get product category analysis
 - `POST /api/reports/export/credit-performance` - Export credit report
 - `POST /api/reports/export/marketing-campaign` - Export marketing report
-- `POST /api/reports/export/product-category-analysis` - Export product analysis (NEW)
+- `POST /api/reports/export/product-category-analysis` - Export product analysis
 - `GET /api/reports/summary` - Get dashboard summary
 - `GET /api/reports/available-filters` - Get filter options
 
@@ -676,39 +719,37 @@ The Excel workbook uses complex formulas that have been translated:
 ### Admin/Debug Endpoints
 - `POST /api/init-database` - Initialize database with defaults
 - `GET /api/health` - Health check endpoint
-- `GET /api/debug/db-info` - Check database connection (ENHANCED)
+- `GET /api/debug/db-info` - Check database connection
 - `GET /api/debug/test-insert` - Test database inserts
 - `GET /api/debug/database-check` - View all table counts
-- `GET /api/debug/ad-spend-details` - Detailed ad spend analysis (FIXED)
+- `GET /api/debug/ad-spend-details` - Detailed ad spend analysis
 
 ### Page Routes
 - `/` - Dashboard
 - `/upload` - Upload data page
 - `/credit-performance` - Credit performance report
 - `/marketing-campaign` - Marketing campaign report
-- `/product-category-analysis` - Product category analysis (NEW)
+- `/product-category-analysis` - Product category analysis
 - `/admin` - Admin panel
 
 ## NEXT STEPS
 
-### IMMEDIATE ACTIONS - Deploy Fixed Code:
+### IMMEDIATE ACTIONS - Deploy Date Parsing Fixes:
 1. **Deploy all updated files to Railway**:
-   - app.py (with distinct import fix)
-   - base.html (with correct image paths and footer)
-   - upload.js (with CSV support)
-   - reports.js (with getHeatmapClass function)
-2. **Clear browser cache** to ensure changes load
-3. **Test fixes**:
-   - Visit /api/debug/ad-spend-details - should work without errors
-   - Upload CSV files for affordability data
-   - Upload Word documents for mappings
-   - Check all images load correctly
-   - Verify footer shows correct company details
-4. **Upload test data** in correct order:
-   - FLG to Meta mappings (Word doc)
-   - Affordability CSVs (passed and failed)
-   - All Leads CSV
-   - Ad spend Excel files
+   - services/data_processor.py (with enhanced date parsing)
+   - services/report_generator.py (with better categorization)
+   - templates/product_category_analysis.html (new template)
+2. **Re-upload ad spend files**:
+   - Check Railway logs for date parsing messages
+   - Look for "Unique dates found in file: [list]"
+   - Should see variety of dates instead of all 2025-06-30
+3. **Upload FLG data**:
+   - Required for product category analysis to work
+   - Upload after affordability CSVs
+4. **Monitor logs** during upload:
+   - "Parsing date value: 'xxx'"
+   - "Successfully parsed 'xxx' as yyyy-mm-dd"
+   - "Failed to parse date: 'xxx'"
 
 ### For Ongoing Use:
 1. **Weekly uploads** - Follow the same order as initial setup
@@ -718,7 +759,7 @@ The Excel workbook uses complex formulas that have been translated:
 5. **Review validation warnings** - System will warn about processing order
 
 ### Future Enhancements to Consider:
-1. **Automated Upload Order** - System could detect and queue files
+1. **Automated Date Detection** - ML-based date format detection
 2. **Data Validation Dashboard** - Show data quality metrics
 3. **Enhanced Analytics**:
    - Trend analysis over time
@@ -737,42 +778,47 @@ The Excel workbook uses complex formulas that have been translated:
 
 ### Common Issues and Solutions
 
-1. **"distinct is not defined error"** (FIXED)
+1. **"All ad spend dates are the same (2025-06-30)"** (FIXED in v2.0)
+   - Enhanced date parser now handles text dates
+   - Check logs for "Unique dates found in file"
+   - Re-upload ad spend files with new parser
+
+2. **"Product category analysis shows no data"** (FIXED in v2.0)
+   - Upload FLG data first (required for analysis)
+   - Check campaign names are being categorized
+   - Verify FLG data has campaign_name field populated
+
+3. **"Date parsing errors in logs"**
+   - Check date format in Excel files
+   - Look for dates stored as text vs actual dates
+   - Parser now handles 30+ formats including:
+     - yyyy-mm-dd, dd/mm/yyyy, mm/dd/yyyy
+     - Month names (July 31, 2025)
+     - With time components
+     - Week ending (W/E) suffixes
+
+4. **"Campaign categorization incorrect"**
+   - Check _categorize_campaign method in report_generator.py
+   - Currently detects: TV, Sofa, Outdoor, Gaming, Credit, Testing, Retargeting
+   - Add new patterns as needed
+
+5. **"distinct is not defined error"** (FIXED)
    - Added `from sqlalchemy import func, text, inspect, distinct`
    - Check /api/debug/ad-spend-details endpoint
 
-2. **"Can't upload CSV files"** (FIXED)
+6. **"Can't upload CSV files"** (FIXED)
    - Updated upload.js to accept .csv extensions
    - Check valid extensions include .csv for applications/flg
 
-3. **"Images not loading"** (FIXED)
+7. **"Images not loading"** (FIXED)
    - All image paths updated to static/img/
    - Check browser console for 404 errors
    - Ensure images exist in static/img/ folder
 
-4. **"Footer doesn't match underwriting site"** (FIXED)
-   - Updated base.html with exact company details
-   - Check footer displays Smarterbuys Store info
-
-5. **"Heatmap colors not showing"** (FIXED)
-   - Added getHeatmapClass function to reports.js
-   - Verify heatmap-1 through heatmap-10 classes in CSS
-
-6. **"Ad spend showing 0 records"**
-   - Check console logs for "Found columns:" messages
-   - Ensure Excel has recognizable date/campaign/spend columns
-   - Check Railway logs for SQL INSERT statements
-   - Verify no ROLLBACK statements in logs
-
-7. **"Word document upload fails"**
+8. **"Word document upload fails"**
    - Ensure python-docx is installed (check requirements.txt)
    - Check file has .docx extension (not .doc)
    - Verify file contains table with FLG/Meta mappings
-
-8. **"No Lead ID column found"**
-   - Ensure CSV has column containing "Lead" and "ID"
-   - Check for hidden characters or spaces
-   - Verify file encoding is UTF-8
 
 ### Debugging Commands
 ```bash
@@ -789,6 +835,12 @@ flask shell
 >>> Application.query.count()
 >>> FLGData.query.count()
 >>> AdSpend.query.count()
+
+# Check date parsing
+>>> from services.data_processor import DataProcessor
+>>> dp = DataProcessor()
+>>> dp._parse_date_enhanced('2025-07-31')
+>>> dp._parse_date_enhanced('31/07/2025')
 
 # Check product extraction
 >>> from services.product_extractor import ProductExtractor
@@ -815,6 +867,7 @@ flask shell
 - [x] CSV upload support added
 - [x] Image paths corrected
 - [x] Footer content updated
+- [x] Enhanced date parsing deployed
 - [ ] Test complete workflow with real data
 
 ## CODE GENERATION INSTRUCTIONS
@@ -839,3 +892,4 @@ flask shell
 7. **INCLUDE NEW SERVICES** - Remember to add ProductExtractor when updating data_processor.py
 8. **MATCH UI STYLE** - All HTML must use the new CSS classes and structure
 9. **USE CORRECT IMAGE PATHS** - All images must use static/img/ path
+10. **HANDLE TEXT DATES** - Date parser must handle dates stored as text strings

@@ -454,8 +454,12 @@ class DataProcessor:
             logger.error(f"Error processing FLG Excel file: {e}")
             raise
     
+
+
+
+
     def process_ad_spend_file(self, filepath):
-        """Fixed version of process_ad_spend_file that handles various Excel formats and date parsing"""
+        """Fixed version that properly reports results and handles mixed date formats"""
         try:
             filename_lower = os.path.basename(filepath).lower()
             is_historic = 'historic' in filename_lower
@@ -467,12 +471,9 @@ class DataProcessor:
             all_records = []
             total_spend = 0
             new_campaigns = set()
-            
-            # Track all ad spend records to insert
             ad_spend_records = []
-            
-            # Track unique dates found
             unique_dates = set()
+            failed_rows = []
             
             for sheet_name in xls.sheet_names:
                 try:
@@ -485,79 +486,47 @@ class DataProcessor:
                     logger.info(f"Processing sheet '{sheet_name}' with {len(df)} rows")
                     logger.info(f"Columns: {list(df.columns)}")
                     
-                    # Print first few rows for debugging
-                    logger.info(f"First 3 rows:\n{df.head(3)}")
-                    
-                    # Identify columns more robustly
+                    # Find columns
                     date_col = None
                     campaign_col = None
                     spend_col = None
-                    adset_col = None
                     
+                    # Find date column
                     for col in df.columns:
-                        col_str = str(col).strip()
-                        col_lower = col_str.lower()
-                        
-                        # Date column - PRIORITIZE "Reporting ends" for date
-                        if not date_col:
-                            if 'reporting ends' in col_lower or 'reporting_ends' in col_lower:
-                                date_col = col
-                                logger.info(f"Date column (Reporting ends): {col}")
-                            elif 'reporting end' in col_lower:
-                                date_col = col
-                                logger.info(f"Date column (Reporting end): {col}")
-                            elif any(term in col_lower for term in ['date', 'week', 'month', 'day', 'period']):
-                                date_col = col
-                                logger.info(f"Date column: {col}")
-                        
-                        # Campaign column
-                        elif not campaign_col and any(term in col_lower for term in ['campaign', 'name']):
+                        col_lower = str(col).lower()
+                        if 'reporting ends' in col_lower or 'reporting_ends' in col_lower:
+                            date_col = col
+                            break
+                        elif 'date' in col_lower or 'week' in col_lower:
+                            date_col = col
+                    
+                    # Find campaign column
+                    for col in df.columns:
+                        col_lower = str(col).lower()
+                        if 'campaign' in col_lower:
                             campaign_col = col
-                            logger.info(f"Campaign column: {col}")
-                        
-                        # Ad set/level column
-                        elif not adset_col and any(term in col_lower for term in ['ad set', 'adset', 'ad_set', 'level']):
-                            adset_col = col
-                            logger.info(f"Ad set column: {col}")
-                    
-                    # Find spend column - check numeric columns
-                    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-                    
-                    for col in df.columns:
-                        col_str = str(col).strip()
-                        col_lower = col_str.lower()
-                        
-                        # Check if it's explicitly a spend column
-                        if any(term in col_lower for term in ['spend', 'cost', 'amount', 'spent', 'budget', 'gmp']):
-                            spend_col = col
-                            logger.info(f"Spend column (by name): {col}")
                             break
                     
-                    # If no spend column found by name, use the last numeric column
-                    if not spend_col and numeric_cols:
-                        # Exclude date columns from numeric columns
-                        non_date_numeric = [col for col in numeric_cols if col != date_col]
-                        if non_date_numeric:
-                            spend_col = non_date_numeric[-1]  # Usually the last numeric column
-                            logger.info(f"Spend column (numeric): {spend_col}")
+                    # Find spend column - look for spend/cost/amount
+                    for col in df.columns:
+                        col_lower = str(col).lower()
+                        if any(term in col_lower for term in ['spend', 'cost', 'amount', 'spent', 'gmp']):
+                            spend_col = col
+                            break
                     
-                    # For weekly files with specific structure
-                    if 'weekly' in filename_lower and not all([date_col, campaign_col, spend_col]):
-                        if len(df.columns) >= 3:
-                            date_col = df.columns[0]
-                            campaign_col = df.columns[1]
-                            if len(df.columns) >= 4:
-                                adset_col = df.columns[2]
-                                spend_col = df.columns[3]
-                            else:
-                                spend_col = df.columns[2]
-                            logger.info(f"Using positional columns for weekly file")
+                    # If no spend column found, use last numeric column
+                    if not spend_col:
+                        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+                        if numeric_cols:
+                            spend_col = numeric_cols[-1]
+                    
+                    logger.info(f"Column mapping - Date: {date_col}, Campaign: {campaign_col}, Spend: {spend_col}")
                     
                     if not campaign_col or not spend_col:
                         logger.warning(f"Missing required columns in sheet '{sheet_name}'")
                         continue
                     
-                    # Process rows
+                    # Process rows - DON'T FAIL ON INDIVIDUAL ROW ERRORS
                     sheet_records = 0
                     sheet_spend = 0
                     
@@ -565,59 +534,41 @@ class DataProcessor:
                         try:
                             # Get campaign name
                             campaign_name = str(row[campaign_col]).strip() if pd.notna(row[campaign_col]) else None
-                            if not campaign_name or campaign_name == 'nan':
+                            
+                            # Skip invalid campaign names
+                            if not campaign_name or campaign_name == 'nan' or campaign_name.lower() in ['total', 'grand total']:
                                 continue
                             
-                            # Parse date - ENHANCED PARSING
+                            # Parse date - USE OUR SIMPLE PARSER
                             date_value = None
                             if date_col and pd.notna(row[date_col]):
                                 date_value = self._parse_date_enhanced(row[date_col], sheet_name, filename_lower)
-                            else:
-                                # Default to end of last month for historic data
-                                if is_historic:
-                                    today = datetime.now()
-                                    first_day = today.replace(day=1)
-                                    date_value = (first_day - timedelta(days=1)).date()
-                                else:
-                                    date_value = datetime.now().date()
                             
+                            # Skip if no date (don't default to June 30!)
                             if not date_value:
-                                logger.warning(f"Could not parse date for row {idx}")
+                                failed_rows.append((idx, row[date_col] if date_col else 'No date column'))
+                                continue
+                            
+                            # Parse spend amount
+                            spend_amount = 0
+                            if pd.notna(row[spend_col]):
+                                if isinstance(row[spend_col], (int, float)):
+                                    spend_amount = float(row[spend_col])
+                                else:
+                                    # Clean string amounts
+                                    spend_str = str(row[spend_col]).replace('£', '').replace('$', '').replace(',', '').replace('GBP', '').strip()
+                                    try:
+                                        spend_amount = float(spend_str)
+                                    except:
+                                        logger.debug(f"Could not parse spend in row {idx}: {row[spend_col]}")
+                                        continue
+                            
+                            # Skip zero or negative amounts
+                            if spend_amount <= 0:
                                 continue
                             
                             # Track unique dates
                             unique_dates.add(date_value)
-                            
-                            # Parse spend amount
-                            spend_raw = row[spend_col]
-                            spend_amount = 0
-                            
-                            # Handle different formats
-                            if pd.notna(spend_raw):
-                                if isinstance(spend_raw, (int, float)):
-                                    spend_amount = float(spend_raw)
-                                else:
-                                    # Clean string values
-                                    spend_str = str(spend_raw).strip()
-                                    # Remove currency symbols and commas
-                                    spend_str = spend_str.replace('£', '').replace('$', '').replace(',', '')
-                                    spend_str = spend_str.replace('GBP', '').replace('gbp', '').strip()
-                                    try:
-                                        spend_amount = float(spend_str)
-                                    except:
-                                        logger.warning(f"Could not parse spend: {spend_raw}")
-                                        continue
-                            
-                            if spend_amount <= 0:
-                                continue
-                            
-                            # Get ad level if available
-                            ad_level = None
-                            if adset_col and pd.notna(row.get(adset_col)):
-                                ad_level = str(row[adset_col]).strip()
-                            
-                            # Log each record we're about to create
-                            logger.info(f"Creating ad spend record: campaign={campaign_name}, date={date_value}, amount={spend_amount}, ad_level={ad_level}")
                             
                             # Create or get campaign
                             campaign = Campaign.query.filter_by(meta_name=campaign_name).first()
@@ -627,15 +578,13 @@ class DataProcessor:
                                     meta_name=campaign_name
                                 )
                                 db.session.add(campaign)
-                                db.session.flush()  # Get the ID
+                                db.session.flush()
                                 new_campaigns.add(campaign_name)
-                                logger.info(f"Created new campaign: {campaign_name}")
                             
                             # Create ad spend record
                             ad_spend = AdSpend(
                                 reporting_end_date=date_value,
                                 meta_campaign_name=campaign_name,
-                                ad_level=ad_level,
                                 spend_amount=spend_amount,
                                 is_new=not is_historic,
                                 campaign_id=campaign.id
@@ -645,68 +594,386 @@ class DataProcessor:
                             sheet_records += 1
                             sheet_spend += spend_amount
                             
+                            # Log progress every 100 rows
+                            if idx % 100 == 0:
+                                logger.info(f"Processed {idx} rows...")
+                            
                         except Exception as e:
-                            logger.error(f"Error processing row {idx}: {e}", exc_info=True)
-                            continue
+                            logger.warning(f"Error processing row {idx}: {e}")
+                            failed_rows.append((idx, str(e)))
+                            continue  # DON'T FAIL - CONTINUE TO NEXT ROW
                     
                     logger.info(f"Sheet '{sheet_name}': {sheet_records} records, £{sheet_spend:,.2f} total")
                     all_records.append(sheet_records)
                     total_spend += sheet_spend
                     
                 except Exception as e:
-                    logger.error(f"Error processing sheet '{sheet_name}': {e}", exc_info=True)
+                    logger.error(f"Error processing sheet '{sheet_name}': {e}")
                     continue
             
-            # Log unique dates found
-            if unique_dates:
-                logger.info(f"Unique dates found in file: {sorted(unique_dates)}")
+            # Log results
+            logger.info(f"\n{'='*60}")
+            logger.info(f"PROCESSING COMPLETE:")
+            logger.info(f"Total records to save: {len(ad_spend_records)}")
+            logger.info(f"Total spend: £{total_spend:,.2f}")
+            logger.info(f"Failed rows: {len(failed_rows)}")
             
-            # Now bulk insert all ad spend records
+            if unique_dates:
+                sorted_dates = sorted(unique_dates)
+                logger.info(f"Unique dates: {len(sorted_dates)}")
+                logger.info(f"Date range: {sorted_dates[0]} to {sorted_dates[-1]}")
+            
+            if failed_rows:
+                logger.warning(f"Failed to parse dates for {len(failed_rows)} rows:")
+                for idx, reason in failed_rows[:5]:
+                    logger.warning(f"  Row {idx}: {reason}")
+            
+            # Bulk insert all records
             if ad_spend_records:
-                logger.info(f"Bulk inserting {len(ad_spend_records)} ad spend records")
+                logger.info(f"Saving {len(ad_spend_records)} records to database...")
                 try:
-                    # Add all records to session
                     for record in ad_spend_records:
                         db.session.add(record)
-                    
-                    # Commit all changes
                     db.session.commit()
-                    logger.info("Successfully committed all ad spend records")
-                    
-                    # Verify the data was saved
-                    verify_count = AdSpend.query.count()
-                    verify_sum = db.session.query(func.sum(AdSpend.spend_amount)).scalar() or 0
-                    logger.info(f"Database verification - Total records in DB: {verify_count}, Total spend in DB: £{verify_sum:,.2f}")
-                    
-                    # Also check just the records we added
-                    if new_campaigns:
-                        for campaign_name in new_campaigns:
-                            campaign_spend = db.session.query(func.sum(AdSpend.spend_amount)).filter_by(meta_campaign_name=campaign_name).scalar() or 0
-                            logger.info(f"Campaign '{campaign_name}' total spend: £{campaign_spend:,.2f}")
-                    
+                    logger.info("Successfully saved all records")
                 except Exception as e:
-                    logger.error(f"Error committing ad spend records: {e}", exc_info=True)
+                    logger.error(f"Error saving to database: {e}")
                     db.session.rollback()
                     raise
-            else:
-                logger.warning("No ad spend records were created from the file")
             
-            total_records = sum(all_records)
-            logger.info(f"TOTAL: {total_records} records, £{total_spend:,.2f} spend")
-            
+            # RETURN CORRECT SUMMARY
             return {
-                'records_processed': total_records,
+                'records_processed': len(ad_spend_records),  # This was the issue - sum(all_records) could be 0
                 'new_campaigns': list(new_campaigns),
                 'total_spend': total_spend,
                 'file_type': f'Excel - {"Historic" if is_historic else "Recent"}',
-                'sheets_processed': len(all_records),
-                'unique_dates': len(unique_dates)
+                'sheets_processed': len([r for r in all_records if r > 0]),
+                'unique_dates': len(unique_dates),
+                'failed_rows': len(failed_rows),
+                'date_range': f"{sorted_dates[0]} to {sorted_dates[-1]}" if unique_dates else None
             }
             
         except Exception as e:
             db.session.rollback()
             logger.error(f"Error processing ad spend file: {e}", exc_info=True)
             raise
+
+    def _parse_date_by_section(self, value, row_idx, section, total_rows):
+        """Parse date with awareness of which section of the file we're in"""
+        
+        # Log what we're trying to parse
+        logger.debug(f"Parsing row {row_idx} ({section}): '{value}' (type: {type(value).__name__})")
+        
+        # If it's None or NaN
+        if pd.isna(value) or value is None:
+            return None
+        
+        # If it's already a datetime/date object
+        if hasattr(value, 'date'):
+            return value.date()
+        if isinstance(value, pd.Timestamp):
+            return value.date()
+        
+        # HANDLE DIFFERENT FORMATS BASED ON SECTION
+        
+        # For LAST section (last 10 rows) - might have different format
+        if section == "LAST":
+            # Try month/year formats first for last rows
+            value_str = str(value).strip()
+            
+            # Common patterns for summary rows
+            summary_formats = [
+                '%B %Y',      # July 2025
+                '%b %Y',      # Jul 2025
+                '%B-%Y',      # July-2025
+                '%b-%Y',      # Jul-2025
+                '%m/%Y',      # 07/2025
+                '%m-%Y',      # 07-2025
+                '%Y-%m',      # 2025-07
+                'FY %Y',      # FY 2025
+                'Q%q %Y',     # Q3 2025
+            ]
+            
+            for fmt in summary_formats:
+                try:
+                    # Special handling for fiscal year
+                    if 'FY' in value_str:
+                        year = int(value_str.replace('FY', '').strip())
+                        # Assume fiscal year ends in June
+                        return datetime(year, 6, 30).date()
+                    
+                    # Special handling for quarters
+                    if value_str.startswith('Q'):
+                        parts = value_str.split()
+                        if len(parts) == 2:
+                            quarter = int(parts[0][1])
+                            year = int(parts[1])
+                            # Last day of quarter
+                            quarter_ends = {1: (3, 31), 2: (6, 30), 3: (9, 30), 4: (12, 31)}
+                            month, day = quarter_ends.get(quarter, (6, 30))
+                            return datetime(year, month, day).date()
+                    
+                    # Try normal parsing
+                    dt = datetime.strptime(value_str, fmt)
+                    # For month/year only, use last day of month
+                    if '%d' not in fmt:
+                        # Get last day of month
+                        if dt.month == 12:
+                            next_month = datetime(dt.year + 1, 1, 1)
+                        else:
+                            next_month = datetime(dt.year, dt.month + 1, 1)
+                        last_day = next_month - timedelta(days=1)
+                        return last_day.date()
+                    return dt.date()
+                except:
+                    continue
+        
+        # For FIRST and MIDDLE sections - try standard date formats
+        # Try Excel serial number first if it's numeric
+        if isinstance(value, (int, float)):
+            try:
+                excel_base = datetime(1899, 12, 30)
+                dt = excel_base + timedelta(days=float(value))
+                parsed_date = dt.date()
+                
+                # Sanity check
+                if datetime(2020, 1, 1).date() <= parsed_date <= datetime(2030, 12, 31).date():
+                    return parsed_date
+            except:
+                pass
+        
+        # Standard date parsing
+        value_str = str(value).strip()
+        
+        # Remove common suffixes
+        for suffix in ['W/E', 'w/e', 'WE', 'Week Ending', 'week ending']:
+            value_str = value_str.replace(suffix, '').strip()
+        
+        # Standard formats
+        standard_formats = [
+            '%Y-%m-%d',           # 2025-07-31
+            '%d/%m/%Y',           # 31/07/2025
+            '%m/%d/%Y',           # 07/31/2025
+            '%d-%m-%Y',           # 31-07-2025
+            '%d.%m.%Y',           # 31.07.2025
+            '%Y/%m/%d',           # 2025/07/31
+            '%d %B %Y',           # 31 July 2025
+            '%d %b %Y',           # 31 Jul 2025
+            '%B %d, %Y',          # July 31, 2025
+            '%d-%b-%Y',           # 31-Jul-2025
+            '%Y%m%d',             # 20250731
+            '%d/%m/%y',           # 31/07/25
+            '%m/%d/%y',           # 07/31/25
+        ]
+        
+        for fmt in standard_formats:
+            try:
+                dt = datetime.strptime(value_str, fmt)
+                return dt.date()
+            except:
+                continue
+        
+        # Last resort - pandas
+        try:
+            dt = pd.to_datetime(value_str, dayfirst=True, errors='coerce')
+            if pd.notna(dt):
+                return dt.date()
+        except:
+            pass
+        
+        logger.warning(f"Failed to parse date in row {row_idx} ({section}): '{value}'")
+        return None
+
+    def _guess_date_from_context(self, sheet_name, row_idx, total_rows):
+        """Guess date based on context when parsing fails"""
+        
+        # Check sheet name for clues
+        sheet_lower = sheet_name.lower()
+        
+        # Month mapping
+        months = {
+            'january': 1, 'jan': 1, 'february': 2, 'feb': 2, 'march': 3, 'mar': 3,
+            'april': 4, 'apr': 4, 'may': 5, 'june': 6, 'jun': 6, 'july': 7, 'jul': 7,
+            'august': 8, 'aug': 8, 'september': 9, 'sep': 9, 'october': 10, 'oct': 10,
+            'november': 11, 'nov': 11, 'december': 12, 'dec': 12
+        }
+        
+        # Look for month in sheet name
+        for month_name, month_num in months.items():
+            if month_name in sheet_lower:
+                # Assume 2025 if no year found
+                year = 2025
+                
+                # Try to find year
+                import re
+                year_match = re.search(r'20\d{2}', sheet_name)
+                if year_match:
+                    year = int(year_match.group())
+                
+                # For last rows, use end of month
+                if row_idx >= total_rows - 10:
+                    if month_num == 12:
+                        return datetime(year, 12, 31).date()
+                    else:
+                        next_month = datetime(year, month_num + 1, 1)
+                        return (next_month - timedelta(days=1)).date()
+                else:
+                    # For other rows, distribute across the month
+                    day = min(28, max(1, int((row_idx / total_rows) * 28) + 1))
+                    return datetime(year, month_num, day).date()
+        
+        # Default fallback - this is probably what's causing June 30!
+        logger.warning(f"Using fallback date for row {row_idx} in sheet '{sheet_name}'")
+        return datetime(2025, 6, 30).date()  # This is likely the culprit!
+
+
+    def _parse_date_enhanced_debug(self, value, sheet_name=None, filename=None):
+        """Enhanced date parsing with detailed debugging"""
+        if pd.isna(value) or value is None:
+            logger.debug("Date value is None or NaN")
+            return None
+        
+        # Log the raw value and its type
+        logger.debug(f"Parsing date - Raw value: '{value}' | Type: {type(value).__name__} | Sheet: {sheet_name}")
+        
+        # If it's already a date object, return it
+        if hasattr(value, 'date'):
+            logger.debug(f"Value has date method, returning: {value.date()}")
+            return value.date()
+        if hasattr(value, 'year') and hasattr(value, 'month') and hasattr(value, 'day'):
+            logger.debug(f"Value is already a date object: {value}")
+            return value
+        
+        # Check if it's a pandas Timestamp
+        if isinstance(value, pd.Timestamp):
+            logger.debug(f"Value is pandas Timestamp: {value.date()}")
+            return value.date()
+        
+        # Convert to string for consistent handling
+        value_str = str(value).strip()
+        logger.debug(f"String representation: '{value_str}'")
+        
+        # Check if it looks like an Excel serial date (pure number)
+        try:
+            # First check if the string is purely numeric
+            if value_str.replace('.', '').replace('-', '').isdigit() and '/' not in value_str and len(value_str) <= 6:
+                serial_num = float(value_str)
+                if 1 < serial_num < 100000:  # Reasonable range for Excel dates
+                    excel_base_date = datetime(1899, 12, 30)
+                    dt = excel_base_date + timedelta(days=serial_num)
+                    logger.debug(f"Parsed as Excel serial date {serial_num} -> {dt.date()}")
+                    return dt.date()
+        except:
+            pass
+        
+        # If the original value was numeric, try Excel serial date
+        if isinstance(value, (int, float)):
+            try:
+                excel_base_date = datetime(1899, 12, 30)
+                dt = excel_base_date + timedelta(days=float(value))
+                logger.debug(f"Parsed numeric value as Excel serial date: {value} -> {dt.date()}")
+                return dt.date()
+            except:
+                pass
+        
+        # Extended list of date formats to try
+        date_formats = [
+            # ISO formats
+            '%Y-%m-%d',           # 2025-07-31
+            '%Y/%m/%d',           # 2025/07/31
+            '%Y.%m.%d',           # 2025.07.31
+            '%Y%m%d',             # 20250731
+            
+            # European formats
+            '%d/%m/%Y',           # 31/07/2025
+            '%d-%m-%Y',           # 31-07-2025
+            '%d.%m.%Y',           # 31.07.2025
+            '%d/%m/%y',           # 31/07/25
+            '%d-%m-%y',           # 31-07-25
+            '%d %m %Y',           # 31 07 2025
+            
+            # US formats
+            '%m/%d/%Y',           # 07/31/2025
+            '%m-%d-%Y',           # 07-31-2025
+            '%m/%d/%y',           # 07/31/25
+            '%m-%d-%y',           # 07-31-25
+            
+            # With time components
+            '%Y-%m-%d %H:%M:%S',  # 2025-07-31 00:00:00
+            '%Y/%m/%d %H:%M:%S',  # 2025/07/31 00:00:00
+            '%d/%m/%Y %H:%M:%S',  # 31/07/2025 00:00:00
+            '%d/%m/%Y %H:%M',     # 31/07/2025 00:00
+            '%m/%d/%Y %H:%M:%S',  # 07/31/2025 00:00:00
+            '%Y-%m-%dT%H:%M:%S',  # 2025-07-31T00:00:00
+            
+            # Month names
+            '%d %B %Y',           # 31 July 2025
+            '%d %b %Y',           # 31 Jul 2025
+            '%d-%B-%Y',           # 31-July-2025  
+            '%d-%b-%Y',           # 31-Jul-2025
+            '%B %d, %Y',          # July 31, 2025
+            '%b %d, %Y',          # Jul 31, 2025
+            '%d %B %y',           # 31 July 25
+            '%d %b %y',           # 31 Jul 25
+            
+            # Special formats
+            '%d/%m',              # 31/07 (assume current year)
+            '%m/%d',              # 07/31 (assume current year)
+        ]
+        
+        # Remove common suffixes/prefixes
+        cleaned_value = value_str
+        for suffix in ['W/E', 'w/e', 'WE', 'we', 'Week Ending', 'week ending', 'Week ending']:
+            cleaned_value = cleaned_value.replace(suffix, '').strip()
+        
+        # Try each format
+        for fmt in date_formats:
+            try:
+                dt = datetime.strptime(cleaned_value, fmt)
+                
+                # Handle formats without year
+                if '%Y' not in fmt and '%y' not in fmt:
+                    current_year = datetime.now().year
+                    dt = dt.replace(year=current_year)
+                
+                logger.debug(f"Successfully parsed '{value_str}' as {dt.date()} using format '{fmt}'")
+                return dt.date()
+            except:
+                continue
+        
+        # Try pandas to_datetime with various settings
+        try:
+            # Try with dayfirst=True (European format)
+            dt = pd.to_datetime(value_str, dayfirst=True, errors='coerce')
+            if pd.notna(dt):
+                logger.debug(f"Pandas parsed '{value_str}' as {dt.date()} (dayfirst=True)")
+                return dt.date()
+        except:
+            pass
+        
+        try:
+            # Try with dayfirst=False (US format)
+            dt = pd.to_datetime(value_str, dayfirst=False, errors='coerce')
+            if pd.notna(dt):
+                logger.debug(f"Pandas parsed '{value_str}' as {dt.date()} (dayfirst=False)")
+                return dt.date()
+        except:
+            pass
+        
+        # Try to extract date from context
+        if sheet_name or filename:
+            context_date = self._extract_date_from_context(sheet_name, filename)
+            if context_date:
+                logger.warning(f"Could not parse '{value_str}', using context date: {context_date}")
+                return context_date
+        
+        logger.warning(f"FAILED to parse date: '{value_str}' | Original type: {type(value).__name__}")
+        
+        # Last resort: Check if it's June 30, 2025 hardcoded somehow
+        if '2025-06-30' in str(value) or '30/06/2025' in str(value) or '06/30/2025' in str(value):
+            logger.error(f"WARNING: Date appears to be hardcoded as June 30, 2025: '{value}'")
+        
+        return None
     
     def _extract_date_from_context(self, sheet_name, filename):
         """Try to extract date from sheet name or filename for historic data"""
@@ -764,105 +1031,72 @@ class DataProcessor:
         return None
     
     def _parse_date_enhanced(self, value, sheet_name=None, filename=None):
-        """Enhanced date parsing that handles text dates like 'yyyy-mm-dd' strings"""
+        """Simple date parser that handles both text and Excel dates"""
         if pd.isna(value) or value is None:
             return None
         
-        # If it's already a date object, return it
+        # If it's already a date/datetime object
         if hasattr(value, 'date'):
             return value.date()
-        if hasattr(value, 'year') and hasattr(value, 'month') and hasattr(value, 'day'):
-            return value
+        if isinstance(value, pd.Timestamp):
+            return value.date()
         
-        # Convert to string for consistent handling
-        value_str = str(value).strip()
-        
-        # Log what we're trying to parse
-        logger.debug(f"Parsing date value: '{value_str}' (type: {type(value)})")
-        
-        # If it's a number (Excel serial date)
-        try:
-            if isinstance(value, (int, float)) or value_str.replace('.', '').isdigit():
+        # HANDLE EXCEL SERIAL DATES (numbers like 45473)
+        if isinstance(value, (int, float)):
+            try:
+                # Excel dates are days since 1899-12-30
                 excel_base_date = datetime(1899, 12, 30)
                 dt = excel_base_date + timedelta(days=float(value))
-                return dt.date()
-        except:
-            pass
+                # Sanity check - make sure date is reasonable
+                if datetime(2020, 1, 1) <= dt <= datetime(2030, 12, 31):
+                    logger.debug(f"Parsed Excel serial {value} as {dt.date()}")
+                    return dt.date()
+            except Exception as e:
+                logger.debug(f"Failed to parse as Excel serial: {value} - {e}")
         
-        # Try various string date formats
+        # HANDLE TEXT DATES
+        # Convert to string and clean up
+        value_str = str(value).strip()
+        
+        # Remove common suffixes
+        for suffix in ['W/E', 'w/e', 'WE', 'Week Ending', 'week ending']:
+            value_str = value_str.replace(suffix, '').strip()
+        
+        # Try common date formats
         date_formats = [
-            # ISO formats
-            '%Y-%m-%d',           # 2025-07-31
-            '%Y/%m/%d',           # 2025/07/31
-            '%Y.%m.%d',           # 2025.07.31
-            
-            # European formats
-            '%d/%m/%Y',           # 31/07/2025
-            '%d-%m-%Y',           # 31-07-2025
-            '%d.%m.%Y',           # 31.07.2025
-            '%d/%m/%y',           # 31/07/25
-            '%d-%m-%y',           # 31-07-25
-            
-            # US formats
-            '%m/%d/%Y',           # 07/31/2025
-            '%m-%d-%Y',           # 07-31-2025
-            '%m/%d/%y',           # 07/31/25
-            '%m-%d-%y',           # 07-31-25
-            
-            # With time
-            '%Y-%m-%d %H:%M:%S',  # 2025-07-31 00:00:00
-            '%Y/%m/%d %H:%M:%S',  # 2025/07/31 00:00:00
-            '%d/%m/%Y %H:%M:%S',  # 31/07/2025 00:00:00
-            '%d/%m/%Y %H:%M',     # 31/07/2025 00:00
-            '%m/%d/%Y %H:%M:%S',  # 07/31/2025 00:00:00
-            
-            # Month names
-            '%d %B %Y',           # 31 July 2025
-            '%d %b %Y',           # 31 Jul 2025
-            '%B %d, %Y',          # July 31, 2025
-            '%b %d, %Y',          # Jul 31, 2025
-            '%d-%b-%Y',           # 31-Jul-2025
-            '%d-%B-%Y',           # 31-July-2025
-            
-            # Week ending formats
-            '%d/%m/%Y W/E',       # 31/07/2025 W/E
-            'W/E %d/%m/%Y',       # W/E 31/07/2025
-            '%d-%m-%Y W/E',       # 31-07-2025 W/E
-            'W/E %d-%m-%Y',       # W/E 31-07-2025
+            '%Y-%m-%d',     # 2025-07-31 (most common in your data)
+            '%d/%m/%Y',     # 31/07/2025
+            '%d-%m-%Y',     # 31-07-2025
+            '%m/%d/%Y',     # 07/31/2025
+            '%Y/%m/%d',     # 2025/07/31
+            '%d/%m/%y',     # 31/07/25
+            '%d %B %Y',     # 31 July 2025
+            '%d %b %Y',     # 31 Jul 2025
+            '%B %Y',        # July 2025
+            '%b %Y',        # Jul 2025
         ]
-        
-        # Remove common suffixes/prefixes
-        cleaned_value = value_str
-        for suffix in ['W/E', 'w/e', 'WE', 'we', 'Week Ending', 'week ending']:
-            cleaned_value = cleaned_value.replace(suffix, '').strip()
         
         for fmt in date_formats:
             try:
-                dt = datetime.strptime(cleaned_value, fmt)
-                logger.debug(f"Successfully parsed '{value_str}' as {dt.date()} using format '{fmt}'")
+                dt = datetime.strptime(value_str, fmt)
+                # For month-only formats, use last day of month
+                if '%d' not in fmt:
+                    if dt.month == 12:
+                        next_month = datetime(dt.year + 1, 1, 1)
+                    else:
+                        next_month = datetime(dt.year, dt.month + 1, 1)
+                    dt = next_month - timedelta(days=1)
+                
+                logger.debug(f"Parsed '{value_str}' as {dt.date()} using format {fmt}")
                 return dt.date()
             except:
                 continue
         
-        # Try pandas to_datetime as last resort
-        try:
-            dt = pd.to_datetime(value_str, dayfirst=True)
-            if pd.notna(dt):
-                logger.debug(f"Pandas parsed '{value_str}' as {dt.date()}")
-                return dt.date()
-        except:
-            pass
-        
-        # If all else fails, try to extract from context
-        if sheet_name or filename:
-            context_date = self._extract_date_from_context(sheet_name, filename)
-            if context_date:
-                logger.warning(f"Could not parse '{value_str}', using context date: {context_date}")
-                return context_date
-        
-        logger.warning(f"Failed to parse date: '{value_str}'")
+        # If all parsing fails, log it but don't crash
+        logger.warning(f"Could not parse date: '{value}' (type: {type(value).__name__})")
         return None
-    
+
+
     def process_mapping_file(self, filepath):
         """Process FLG to Meta name mapping file (Word document)"""
         try:

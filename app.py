@@ -611,6 +611,184 @@ def init_db():
     db.session.commit()
     logger.info("Default status mappings created")
 
+
+@app.route('/excel-debug')
+def excel_debug_page():
+    return render_template('excel_debug.html')
+
+
+"""
+Add this debug endpoint to app.py to examine Excel file structure
+"""
+
+@app.route('/api/debug/examine-excel', methods=['POST'])
+def debug_examine_excel():
+    """Debug endpoint to examine Excel file structure in detail"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Save temporarily
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], f'debug_{filename}')
+        file.save(filepath)
+        
+        try:
+            # Read Excel file
+            xls = pd.ExcelFile(filepath)
+            
+            result = {
+                'filename': filename,
+                'sheets': []
+            }
+            
+            for sheet_name in xls.sheet_names[:3]:  # Examine first 3 sheets
+                # Read sheet
+                df = pd.read_excel(filepath, sheet_name=sheet_name)
+                
+                sheet_info = {
+                    'name': sheet_name,
+                    'rows': len(df),
+                    'columns': list(df.columns),
+                    'dtypes': {col: str(df[col].dtype) for col in df.columns},
+                    'samples': {}
+                }
+                
+                # Get sample values from each column
+                for col in df.columns:
+                    # Get first 5 non-null values
+                    non_null_values = df[col].dropna().head(5).tolist()
+                    
+                    # Special handling for date-like columns
+                    col_lower = str(col).lower()
+                    if any(term in col_lower for term in ['date', 'week', 'month', 'period', 'reporting', 'ends']):
+                        # Get more samples for date columns
+                        non_null_values = df[col].dropna().head(10).tolist()
+                        
+                        # Check types
+                        types = [type(val).__name__ for val in non_null_values[:5]]
+                        
+                        # Try to parse first value
+                        if non_null_values:
+                            first_val = non_null_values[0]
+                            parsed_attempts = []
+                            
+                            # Check if it's numeric (Excel serial)
+                            if isinstance(first_val, (int, float)):
+                                try:
+                                    excel_date = datetime(1899, 12, 30) + timedelta(days=first_val)
+                                    parsed_attempts.append(f"Excel serial: {first_val} -> {excel_date.date()}")
+                                except:
+                                    pass
+                            
+                            # Check if it's already a date
+                            if hasattr(first_val, 'date'):
+                                parsed_attempts.append(f"Already datetime: {first_val.date()}")
+                            
+                            # Try string parsing
+                            if isinstance(first_val, str):
+                                # Check if it looks like a date
+                                if '/' in first_val or '-' in first_val:
+                                    parsed_attempts.append(f"String date format: '{first_val}'")
+                            
+                            sheet_info['samples'][col] = {
+                                'values': [str(v) for v in non_null_values],
+                                'types': types,
+                                'parsing_attempts': parsed_attempts,
+                                'is_potential_date_column': True
+                            }
+                    else:
+                        sheet_info['samples'][col] = {
+                            'values': [str(v) for v in non_null_values],
+                            'types': [type(val).__name__ for val in non_null_values[:3]],
+                            'is_potential_date_column': False
+                        }
+                
+                # Look for specific patterns in the data
+                if 'Reporting ends' in df.columns or 'reporting_ends' in df.columns:
+                    date_col = 'Reporting ends' if 'Reporting ends' in df.columns else 'reporting_ends'
+                    
+                    # Analyze this column specifically
+                    date_analysis = {
+                        'column_name': date_col,
+                        'total_values': len(df[date_col]),
+                        'non_null_values': df[date_col].notna().sum(),
+                        'unique_values': df[date_col].nunique(),
+                        'value_counts': {}
+                    }
+                    
+                    # Get value counts for dates
+                    value_counts = df[date_col].value_counts().head(10)
+                    for val, count in value_counts.items():
+                        date_analysis['value_counts'][str(val)] = count
+                    
+                    sheet_info['date_column_analysis'] = date_analysis
+                
+                result['sheets'].append(sheet_info)
+            
+            # Clean up
+            os.remove(filepath)
+            
+            return jsonify(result)
+            
+        except Exception as e:
+            # Clean up
+            if os.path.exists(filepath):
+                os.remove(filepath)
+            
+            logger.error(f"Error examining Excel file: {e}", exc_info=True)
+            return jsonify({'error': str(e)}), 500
+            
+    except Exception as e:
+        logger.error(f"Error in debug examine endpoint: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/debug/fix-june-dates', methods=['POST'])
+def debug_fix_june_dates():
+    """Emergency fix to update all June 30 dates to their correct values"""
+    try:
+        # First, let's see what we have
+        june_30_count = AdSpend.query.filter_by(
+            reporting_end_date=datetime(2025, 6, 30).date()
+        ).count()
+        
+        if june_30_count == 0:
+            return jsonify({
+                'message': 'No records found with June 30, 2025 date',
+                'june_30_count': 0
+            })
+        
+        # Get all unique campaign names with June 30 date
+        june_campaigns = db.session.query(
+            AdSpend.meta_campaign_name,
+            func.count(AdSpend.id).label('count')
+        ).filter(
+            AdSpend.reporting_end_date == datetime(2025, 6, 30).date()
+        ).group_by(
+            AdSpend.meta_campaign_name
+        ).all()
+        
+        result = {
+            'june_30_count': june_30_count,
+            'campaigns_affected': len(june_campaigns),
+            'campaign_details': [
+                {'campaign': c[0], 'records': c[1]} 
+                for c in june_campaigns
+            ],
+            'message': f'Found {june_30_count} records with June 30, 2025. This endpoint can be extended to fix them.'
+        }
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error in fix june dates endpoint: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
 @app.cli.command()
 def seed_test_data():
     """Seed database with test data"""

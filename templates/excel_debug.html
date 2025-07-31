@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Date Debug Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #18124C;
+            margin-bottom: 10px;
+        }
+        .upload-area {
+            border: 2px dashed #3BF7CA;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .upload-area:hover {
+            background: #f0fffd;
+        }
+        .upload-area.dragover {
+            background: #e0f7f4;
+            border-color: #18124C;
+        }
+        button {
+            background: #3BF7CA;
+            color: #18124C;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        .results {
+            margin-top: 30px;
+            display: none;
+        }
+        .sheet-info {
+            background: #f9f9f9;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+            border-left: 4px solid #3BF7CA;
+        }
+        .column-info {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+        }
+        .date-column {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #f4f4f4;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Excel Date Debug Tool</h1>
+        <p>Upload your historic ad spend Excel file to examine its structure and date formats.</p>
+        
+        <div class="upload-area" id="uploadArea">
+            <input type="file" id="fileInput" accept=".xlsx,.xls" style="display: none;">
+            <h3>Click or drag Excel file here</h3>
+            <p>Accepts .xlsx and .xls files</p>
+        </div>
+        
+        <div>
+            <button onclick="examineFile()">Examine File Structure</button>
+            <button onclick="checkJuneDates()">Check June 30 Dates</button>
+            <button onclick="clearResults()">Clear Results</button>
+        </div>
+        
+        <div id="loading" class="loading" style="display: none;">
+            <h3>Analyzing file...</h3>
+            <p>This may take a few moments for large files.</p>
+        </div>
+        
+        <div id="results" class="results"></div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+        
+        // File selection
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('uploadArea');
+        
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                selectedFile = e.target.files[0];
+                uploadArea.innerHTML = `
+                    <h3>Selected: ${selectedFile.name}</h3>
+                    <p>Size: ${(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                    <p>Click "Examine File Structure" to analyze</p>
+                `;
+            }
+        });
+        
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            if (e.dataTransfer.files.length > 0) {
+                selectedFile = e.dataTransfer.files[0];
+                uploadArea.innerHTML = `
+                    <h3>Selected: ${selectedFile.name}</h3>
+                    <p>Size: ${(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                    <p>Click "Examine File Structure" to analyze</p>
+                `;
+            }
+        });
+        
+        function examineFile() {
+            if (!selectedFile) {
+                alert('Please select a file first');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            
+            fetch('/api/debug/examine-excel', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loading').style.display = 'none';
+                displayResults(data);
+            })
+            .catch(error => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('results').innerHTML = `
+                    <div class="error">
+                        <h3>Error examining file</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+                document.getElementById('results').style.display = 'block';
+            });
+        }
+        
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            let html = '<h2>Excel File Analysis Results</h2>';
+            
+            if (data.error) {
+                html += `<div class="error">${data.error}</div>`;
+            } else {
+                html += `<p><strong>Filename:</strong> ${data.filename}</p>`;
+                html += `<p><strong>Number of sheets:</strong> ${data.sheets.length}</p>`;
+                
+                data.sheets.forEach((sheet, index) => {
+                    html += `<div class="sheet-info">`;
+                    html += `<h3>Sheet: "${sheet.name}"</h3>`;
+                    html += `<p><strong>Rows:</strong> ${sheet.rows} | <strong>Columns:</strong> ${sheet.columns.length}</p>`;
+                    
+                    // Show columns
+                    html += '<h4>Columns:</h4>';
+                    html += '<table><tr><th>Column Name</th><th>Data Type</th><th>Sample Values</th></tr>';
+                    
+                    sheet.columns.forEach(col => {
+                        const samples = sheet.samples[col];
+                        const isDateCol = samples && samples.is_potential_date_column;
+                        
+                        html += `<tr class="${isDateCol ? 'date-column' : ''}">`;
+                        html += `<td><strong>${col}</strong></td>`;
+                        html += `<td>${sheet.dtypes[col]}</td>`;
+                        html += `<td>`;
+                        
+                        if (samples) {
+                            html += `<small>${samples.values.slice(0, 3).join(', ')}</small>`;
+                            if (isDateCol && samples.parsing_attempts) {
+                                html += '<br><em>Parse attempts:</em><br>';
+                                samples.parsing_attempts.forEach(attempt => {
+                                    html += `<small>• ${attempt}</small><br>`;
+                                });
+                            }
+                        }
+                        
+                        html += `</td></tr>`;
+                    });
+                    
+                    html += '</table>';
+                    
+                    // Show date column analysis if available
+                    if (sheet.date_column_analysis) {
+                        const analysis = sheet.date_column_analysis;
+                        html += '<div class="column-info date-column">';
+                        html += `<h4>Date Column Analysis: "${analysis.column_name}"</h4>`;
+                        html += `<p><strong>Total values:</strong> ${analysis.total_values}</p>`;
+                        html += `<p><strong>Non-null values:</strong> ${analysis.non_null_values}</p>`;
+                        html += `<p><strong>Unique dates:</strong> ${analysis.unique_values}</p>`;
+                        
+                        if (Object.keys(analysis.value_counts).length > 0) {
+                            html += '<p><strong>Most common values:</strong></p>';
+                            html += '<ul>';
+                            for (const [val, count] of Object.entries(analysis.value_counts)) {
+                                html += `<li>${val}: ${count} occurrences</li>`;
+                            }
+                            html += '</ul>';
+                        }
+                        html += '</div>';
+                    }
+                    
+                    html += '</div>';
+                });
+            }
+            
+            resultsDiv.innerHTML = html;
+            resultsDiv.style.display = 'block';
+        }
+        
+        function checkJuneDates() {
+            fetch('/api/debug/fix-june-dates', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                const resultsDiv = document.getElementById('results');
+                let html = '<h2>June 30, 2025 Date Check</h2>';
+                
+                if (data.error) {
+                    html += `<div class="error">${data.error}</div>`;
+                } else {
+                    html += `<div class="${data.june_30_count > 0 ? 'error' : 'success'}">`;
+                    html += `<p><strong>Records with June 30, 2025:</strong> ${data.june_30_count}</p>`;
+                    
+                    if (data.june_30_count > 0) {
+                        html += `<p><strong>Campaigns affected:</strong> ${data.campaigns_affected}</p>`;
+                        html += '<h4>Campaign Details:</h4>';
+                        html += '<ul>';
+                        data.campaign_details.forEach(campaign => {
+                            html += `<li>${campaign.campaign}: ${campaign.records} records</li>`;
+                        });
+                        html += '</ul>';
+                    }
+                    
+                    html += `<p>${data.message}</p>`;
+                    html += '</div>';
+                }
+                
+                resultsDiv.innerHTML = html;
+                resultsDiv.style.display = 'block';
+            })
+            .catch(error => {
+                document.getElementById('results').innerHTML = `
+                    <div class="error">
+                        <h3>Error checking dates</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+                document.getElementById('results').style.display = 'block';
+            });
+        }
+        
+        function clearResults() {
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('results').innerHTML = '';
+        }
+    </script>
+</body>
+</html>
