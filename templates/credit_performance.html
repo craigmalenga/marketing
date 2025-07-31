@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Credit Performance Report - Marketing Analytics Platform{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <div class="flex justify-between items-center">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-900 mb-2">Credit Performance by Product</h2>
+                <p class="text-gray-600">Analyse credit applications and approvals by product category</p>
+            </div>
+            <button id="export-credit-btn" class="btn-primary">
+                <i class="fas fa-download mr-2"></i>Export to Excel
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Filters</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                <input type="date" id="start-date" class="form-input" value="">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                <input type="date" id="end-date" class="form-input" value="">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Product Category</label>
+                <select id="product-category" class="form-select">
+                    <option value="">All Categories</option>
+                </select>
+            </div>
+        </div>
+        <div class="mt-4">
+            <button id="apply-filters-btn" class="btn-primary">
+                <i class="fas fa-filter mr-2"></i>Apply Filters
+            </button>
+            <button id="reset-filters-btn" class="btn-secondary ml-2">
+                <i class="fas fa-undo mr-2"></i>Reset
+            </button>
+        </div>
+    </div>
+
+    <!-- Report Table -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <div class="overflow-x-auto">
+            <table class="report-table" id="credit-performance-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2">Product</th>
+                        <th rowspan="2">Number</th>
+                        <th rowspan="2">Average Value<br>Credit Applied</th>
+                        <th rowspan="2">Combined Enquiry<br>Credit Value</th>
+                        <th rowspan="2">Credit for<br>Applications</th>
+                        <th rowspan="2">Pull Through Rate<br>from Website to<br>Application Stage</th>
+                        <th rowspan="2">Credit for<br>Processed<br>Applications</th>
+                        <th rowspan="2">% Applications<br>Processed</th>
+                        <th rowspan="2">Credit Issued for<br>Approved Applications</th>
+                        <th rowspan="2">% Processed<br>Applications Issued</th>
+                        <th rowspan="2">Av Credit Issued<br>Per Enquiry</th>
+                    </tr>
+                </thead>
+                <tbody id="credit-performance-tbody">
+                    <!-- Report data will be populated here -->
+                </tbody>
+                <tfoot id="credit-performance-tfoot">
+                    <!-- Totals will be populated here -->
+                </tfoot>
+            </table>
+        </div>
+        <div id="loading-indicator" class="text-center py-8 hidden">
+            <i class="fas fa-spinner fa-spin text-4xl text-blue-600"></i>
+            <p class="text-gray-600 mt-2">Loading report data...</p>
+        </div>
+    </div>
+
+    <!-- Key Metrics Summary -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white shadow rounded-lg p-6">
+            <h4 class="text-lg font-semibold text-gray-900 mb-2">Top Performing Product</h4>
+            <p class="text-2xl font-bold text-blue-600" id="top-product">-</p>
+            <p class="text-sm text-gray-600">By approval rate</p>
+        </div>
+        <div class="bg-white shadow rounded-lg p-6">
+            <h4 class="text-lg font-semibold text-gray-900 mb-2">Average Pull Through Rate</h4>
+            <p class="text-2xl font-bold text-green-600" id="avg-pull-through">-</p>
+            <p class="text-sm text-gray-600">Website to application</p>
+        </div>
+        <div class="bg-white shadow rounded-lg p-6">
+            <h4 class="text-lg font-semibold text-gray-900 mb-2">Total Credit Issued</h4>
+            <p class="text-2xl font-bold text-purple-600" id="total-credit-issued">-</p>
+            <p class="text-sm text-gray-600">For approved applications</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/reports.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Set default date range (last 30 days)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+    
+    document.getElementById('start-date').value = startDate.toISOString().split('T')[0];
+    document.getElementById('end-date').value = endDate.toISOString().split('T')[0];
+    
+    // Load filters and report
+    loadCreditPerformanceFilters();
+    loadCreditPerformanceReport();
+    
+    // Event listeners
+    document.getElementById('apply-filters-btn').addEventListener('click', loadCreditPerformanceReport);
+    document.getElementById('reset-filters-btn').addEventListener('click', resetCreditFilters);
+    document.getElementById('export-credit-btn').addEventListener('click', exportCreditPerformanceReport);
+});
+</script>
+{% endblock %}

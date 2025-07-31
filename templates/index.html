@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Marketing Analytics Platform{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-2xl font-bold text-gray-900 mb-2">Dashboard Overview</h2>
+        <p class="text-gray-600">Real-time analytics and performance metrics</p>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="stat-card">
+            <div class="stat-icon bg-blue-100 text-blue-600">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-title">Total Enquiries</h3>
+                <p class="stat-value" id="total-enquiries">-</p>
+                <p class="stat-change text-green-600">
+                    <i class="fas fa-arrow-up"></i>
+                    <span id="week-enquiries">-</span> this week
+                </p>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon bg-green-100 text-green-600">
+                <i class="fas fa-file-alt"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-title">Applications</h3>
+                <p class="stat-value" id="total-applications">-</p>
+                <p class="stat-change text-green-600">
+                    <i class="fas fa-arrow-up"></i>
+                    <span id="week-applications">-</span> this week
+                </p>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon bg-purple-100 text-purple-600">
+                <i class="fas fa-percentage"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-title">Approval Rate</h3>
+                <p class="stat-value" id="approval-rate">-</p>
+                <p class="stat-change text-gray-600">
+                    Overall average
+                </p>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon bg-yellow-100 text-yellow-600">
+                <i class="fas fa-pound-sign"></i>
+            </div>
+            <div class="stat-content">
+                <h3 class="stat-title">Weekly Spend</h3>
+                <p class="stat-value" id="week-spend">-</p>
+                <p class="stat-change text-gray-600">
+                    Marketing budget
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Weekly Trends Chart -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Weekly Trends</h3>
+            <canvas id="weekly-trends-chart" width="400" height="200"></canvas>
+        </div>
+
+        <!-- Product Performance Chart -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Top Products by Applications</h3>
+            <canvas id="product-performance-chart" width="400" height="200"></canvas>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Upload Status</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="upload-status-card">
+                <h4 class="font-medium text-gray-700">Applications Data</h4>
+                <p class="text-sm text-gray-500">Last upload: <span id="applications-last-upload">Not uploaded</span></p>
+                <p class="text-sm text-gray-500">Total records: <span id="applications-total">0</span></p>
+            </div>
+            <div class="upload-status-card">
+                <h4 class="font-medium text-gray-700">FLG Data</h4>
+                <p class="text-sm text-gray-500">Last upload: <span id="flg-last-upload">Not uploaded</span></p>
+                <p class="text-sm text-gray-500">Total records: <span id="flg-total">0</span></p>
+            </div>
+            <div class="upload-status-card">
+                <h4 class="font-medium text-gray-700">Ad Spend Data</h4>
+                <p class="text-sm text-gray-500">Last upload: <span id="adspend-last-upload">Not uploaded</span></p>
+                <p class="text-sm text-gray-500">Total records: <span id="adspend-total">0</span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <a href="{{ url_for('upload_page') }}" class="quick-action-btn">
+                <i class="fas fa-upload text-2xl mb-2"></i>
+                <span>Upload Data</span>
+            </a>
+            <a href="{{ url_for('credit_performance') }}" class="quick-action-btn">
+                <i class="fas fa-chart-bar text-2xl mb-2"></i>
+                <span>View Credit Report</span>
+            </a>
+            <a href="{{ url_for('marketing_campaign') }}" class="quick-action-btn">
+                <i class="fas fa-bullhorn text-2xl mb-2"></i>
+                <span>Campaign Report</span>
+            </a>
+            <button class="quick-action-btn" onclick="exportAllReports()">
+                <i class="fas fa-download text-2xl mb-2"></i>
+                <span>Export All Reports</span>
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Load dashboard data on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboardData();
+    loadUploadStatus();
+    initializeCharts();
+});
+
+function loadDashboardData() {
+    fetch('/api/reports/summary')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('total-enquiries').textContent = data.data.total_enquiries.toLocaleString();
+                document.getElementById('week-enquiries').textContent = data.data.week_enquiries.toLocaleString();
+                document.getElementById('total-applications').textContent = data.data.total_applications.toLocaleString();
+                document.getElementById('week-applications').textContent = data.data.week_applications.toLocaleString();
+                document.getElementById('approval-rate').textContent = (data.data.approval_rate * 100).toFixed(1) + '%';
+                document.getElementById('week-spend').textContent = '£' + data.data.week_spend.toLocaleString('en-GB', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            }
+        })
+        .catch(error => console.error('Error loading dashboard data:', error));
+}
+
+function loadUploadStatus() {
+    fetch('/api/upload/check-status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Applications
+                if (data.status.applications.last_upload) {
+                    const date = new Date(data.status.applications.last_upload);
+                    document.getElementById('applications-last-upload').textContent = date.toLocaleString('en-GB');
+                }
+                document.getElementById('applications-total').textContent = data.status.applications.total_records.toLocaleString();
+                
+                // FLG Data
+                if (data.status.flg_data.last_upload) {
+                    const date = new Date(data.status.flg_data.last_upload);
+                    document.getElementById('flg-last-upload').textContent = date.toLocaleString('en-GB');
+                }
+                document.getElementById('flg-total').textContent = data.status.flg_data.total_records.toLocaleString();
+                
+                // Ad Spend
+                if (data.status.ad_spend.last_upload) {
+                    const date = new Date(data.status.ad_spend.last_upload);
+                    document.getElementById('adspend-last-upload').textContent = date.toLocaleString('en-GB');
+                }
+                document.getElementById('adspend-total').textContent = data.status.ad_spend.total_records.toLocaleString();
+            }
+        })
+        .catch(error => console.error('Error loading upload status:', error));
+}
+
+function initializeCharts() {
+    // Weekly Trends Chart
+    const trendsCtx = document.getElementById('weekly-trends-chart').getContext('2d');
+    const trendsChart = new Chart(trendsCtx, {
+        type: 'line',
+        data: {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            datasets: [{
+                label: 'Enquiries',
+                data: [65, 59, 80, 81, 56, 55, 40],
+                borderColor: 'rgb(59, 130, 246)',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                tension: 0.1
+            }, {
+                label: 'Applications',
+                data: [28, 48, 40, 19, 86, 27, 90],
+                borderColor: 'rgb(16, 185, 129)',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            }
+        }
+    });
+
+    // Product Performance Chart
+    const productCtx = document.getElementById('product-performance-chart').getContext('2d');
+    const productChart = new Chart(productCtx, {
+        type: 'bar',
+        data: {
+            labels: ['TV', 'Console', 'Washer Dryer', 'Fridge Freezer', 'Cooker'],
+            datasets: [{
+                label: 'Applications',
+                data: [120, 90, 75, 60, 45],
+                backgroundColor: [
+                    'rgba(59, 130, 246, 0.8)',
+                    'rgba(16, 185, 129, 0.8)',
+                    'rgba(251, 191, 36, 0.8)',
+                    'rgba(167, 139, 250, 0.8)',
+                    'rgba(251, 113, 133, 0.8)'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+}
+
+function exportAllReports() {
+    // TODO: Implement export all reports functionality
+    alert('Export functionality coming soon!');
+}
+</script>
+{% endblock %}

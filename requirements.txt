@@ -1,0 +1,32 @@
+# Core Flask dependencies
+Flask==2.3.3
+Flask-SQLAlchemy==3.0.5
+Flask-CORS==4.0.0
+Werkzeug==2.3.7
+
+# Database
+SQLAlchemy==2.0.21
+psycopg2-binary==2.9.7
+
+# Data processing
+pandas==2.1.0
+openpyxl==3.1.2
+python-docx==0.8.11
+
+# Production server
+gunicorn==21.2.0
+
+# Environment variables
+python-dotenv==1.0.0
+
+# Date handling
+python-dateutil==2.8.2
+
+# File handling
+xlrd==2.0.1
+
+# Development dependencies (optional)
+# pytest==7.4.2
+# pytest-flask==1.2.0
+# black==23.9.1
+# flake8==6.1.0

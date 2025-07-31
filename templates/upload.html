@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Data - Marketing Analytics Platform{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-2xl font-bold text-gray-900 mb-2">Upload Data Files</h2>
+        <p class="text-gray-600">Upload your weekly data files to update the analytics</p>
+    </div>
+
+    <!-- Upload Cards -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Applications Data Upload -->
+        <div class="upload-card">
+            <div class="upload-card-header">
+                <h3 class="text-lg font-semibold">Applications Data</h3>
+                <span class="upload-status" id="applications-status"></span>
+            </div>
+            <div class="upload-card-body">
+                <p class="text-sm text-gray-600 mb-4">
+                    Upload the affordability check data (passed/failed) Excel file.
+                    Expected sheets: "Affordability data - passed" and "Affordability data - failed"
+                </p>
+                <div class="upload-zone" id="applications-dropzone">
+                    <input type="file" id="applications-file" accept=".xlsx,.xls" class="hidden">
+                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
+                    <p class="text-gray-600">Drop file here or click to browse</p>
+                    <p class="text-sm text-gray-500">(.xlsx or .xls files only)</p>
+                </div>
+                <div id="applications-progress" class="hidden mt-4">
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" style="width: 0%"></div>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-2">Uploading...</p>
+                </div>
+                <div id="applications-result" class="hidden mt-4"></div>
+            </div>
+        </div>
+
+        <!-- FLG Data Upload -->
+        <div class="upload-card">
+            <div class="upload-card-header">
+                <h3 class="text-lg font-semibold">FLG Full Data</h3>
+                <span class="upload-status" id="flg-status"></span>
+            </div>
+            <div class="upload-card-body">
+                <p class="text-sm text-gray-600 mb-4">
+                    Upload the FLG data Excel file with lead information, sale values, and status.
+                    Expected sheet: "ALL"
+                </p>
+                <div class="upload-zone" id="flg-dropzone">
+                    <input type="file" id="flg-file" accept=".xlsx,.xls" class="hidden">
+                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
+                    <p class="text-gray-600">Drop file here or click to browse</p>
+                    <p class="text-sm text-gray-500">(.xlsx or .xls files only)</p>
+                </div>
+                <div id="flg-progress" class="hidden mt-4">
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" style="width: 0%"></div>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-2">Uploading...</p>
+                </div>
+                <div id="flg-result" class="hidden mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Ad Spend Upload -->
+        <div class="upload-card">
+            <div class="upload-card-header">
+                <h3 class="text-lg font-semibold">Ad Spend Data</h3>
+                <span class="upload-status" id="adspend-status"></span>
+            </div>
+            <div class="upload-card-body">
+                <p class="text-sm text-gray-600 mb-4">
+                    Upload the ad spend Excel file with campaign and ad level spending data.
+                </p>
+                <div class="upload-zone" id="adspend-dropzone">
+                    <input type="file" id="adspend-file" accept=".xlsx,.xls" class="hidden">
+                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
+                    <p class="text-gray-600">Drop file here or click to browse</p>
+                    <p class="text-sm text-gray-500">(.xlsx or .xls files only)</p>
+                </div>
+                <div id="adspend-progress" class="hidden mt-4">
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" style="width: 0%"></div>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-2">Uploading...</p>
+                </div>
+                <div id="adspend-result" class="hidden mt-4"></div>
+            </div>
+        </div>
+
+        <!-- FLG to Meta Mapping Upload -->
+        <div class="upload-card">
+            <div class="upload-card-header">
+                <h3 class="text-lg font-semibold">FLG to Meta Name Mapping</h3>
+                <span class="upload-status" id="mapping-status"></span>
+            </div>
+            <div class="upload-card-body">
+                <p class="text-sm text-gray-600 mb-4">
+                    Upload the Word document or Excel file containing FLG to Meta campaign name mappings.
+                </p>
+                <div class="upload-zone" id="mapping-dropzone">
+                    <input type="file" id="mapping-file" accept=".docx,.doc,.xlsx,.xls" class="hidden">
+                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
+                    <p class="text-gray-600">Drop file here or click to browse</p>
+                    <p class="text-sm text-gray-500">(.docx, .doc, .xlsx or .xls files)</p>
+                </div>
+                <div id="mapping-progress" class="hidden mt-4">
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" style="width: 0%"></div>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-2">Uploading...</p>
+                </div>
+                <div id="mapping-result" class="hidden mt-4"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload History -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Upload History</h3>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Upload Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Records</th>
+                    </tr>
+                </thead>
+                <tbody id="upload-history-tbody" class="bg-white divide-y divide-gray-200">
+                    <!-- Upload history will be populated here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/upload.js') }}"></script>
+{% endblock %}

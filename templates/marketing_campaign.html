@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}Marketing Campaign Report - Marketing Analytics Platform{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <div class="flex justify-between items-center">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-900 mb-2">Marketing Campaign Performance</h2>
+                <p class="text-gray-600">Analyse marketing spend effectiveness and ROI by campaign</p>
+            </div>
+            <button id="export-marketing-btn" class="btn-primary">
+                <i class="fas fa-download mr-2"></i>Export to Excel
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Filters</h3>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                <input type="date" id="start-date" class="form-input" value="">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                <input type="date" id="end-date" class="form-input" value="">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Campaign</label>
+                <select id="campaign-name" class="form-select">
+                    <option value="">All Campaigns</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Ad Level</label>
+                <select id="ad-level" class="form-select">
+                    <option value="">All Ad Levels</option>
+                </select>
+            </div>
+        </div>
+        <div class="mt-4">
+            <button id="apply-filters-btn" class="btn-primary">
+                <i class="fas fa-filter mr-2"></i>Apply Filters
+            </button>
+            <button id="reset-filters-btn" class="btn-secondary ml-2">
+                <i class="fas fa-undo mr-2"></i>Reset
+            </button>
+        </div>
+    </div>
+
+    <!-- Summary Metrics -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="metric-card">
+            <h4 class="metric-label">Marketing Cost</h4>
+            <p class="metric-value" id="marketing-cost">£0</p>
+        </div>
+        <div class="metric-card">
+            <h4 class="metric-label">Cost per Enquiry</h4>
+            <p class="metric-value" id="cost-per-enquiry">£0</p>
+        </div>
+        <div class="metric-card">
+            <h4 class="metric-label">Cost per Application</h4>
+            <p class="metric-value" id="cost-per-application">£0</p>
+        </div>
+        <div class="metric-card">
+            <h4 class="metric-label">Cost per Approved Loan</h4>
+            <p class="metric-value" id="cost-per-approved">£0</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="metric-card">
+            <h4 class="metric-label">Approval Rate</h4>
+            <p class="metric-value text-green-600" id="approval-rate">0%</p>
+        </div>
+        <div class="metric-card">
+            <h4 class="metric-label">Credit Issued</h4>
+            <p class="metric-value text-blue-600" id="credit-issued">£0</p>
+        </div>
+        <div class="metric-card">
+            <h4 class="metric-label">Credit per £ Spent</h4>
+            <p class="metric-value text-purple-600" id="credit-per-pound">£0</p>
+        </div>
+        <div class="metric-card">
+            <h4 class="metric-label">GM Return per £</h4>
+            <p class="metric-value" id="gm-return">£0</p>
+        </div>
+    </div>
+
+    <!-- Status Breakdown -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Status Breakdown</h3>
+        <div class="overflow-x-auto">
+            <table class="status-breakdown-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2">Status</th>
+                        <th colspan="4" class="text-center">Category Mapping</th>
+                        <th rowspan="2">Count</th>
+                        <th rowspan="2">Value</th>
+                    </tr>
+                    <tr>
+                        <th>App Received</th>
+                        <th>App Processed</th>
+                        <th>App Approved</th>
+                        <th>Future</th>
+                    </tr>
+                </thead>
+                <tbody id="status-breakdown-tbody">
+                    <!-- Status breakdown will be populated here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Performance Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Application Funnel</h3>
+            <canvas id="funnel-chart" width="400" height="300"></canvas>
+        </div>
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">ROI Analysis</h3>
+            <canvas id="roi-chart" width="400" height="300"></canvas>
+        </div>
+    </div>
+
+    <!-- Additional Insights -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Key Insights</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <h4 class="font-semibold text-gray-700 mb-2">Performance Summary</h4>
+                <ul class="space-y-2 text-sm text-gray-600">
+                    <li>• Total enquiries: <span id="total-enquiries" class="font-semibold">0</span></li>
+                    <li>• Applications received: <span id="total-applications" class="font-semibold">0</span></li>
+                    <li>• Applications processed: <span id="total-processed" class="font-semibold">0</span></li>
+                    <li>• Applications approved: <span id="total-approved" class="font-semibold">0</span></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-semibold text-gray-700 mb-2">Efficiency Metrics</h4>
+                <ul class="space-y-2 text-sm text-gray-600">
+                    <li>• Average credit per approved app: <span id="avg-credit-approved" class="font-semibold">£0</span></li>
+                    <li>• Expected gross margin per £ spent: <span id="expected-gm" class="font-semibold">£0</span></li>
+                    <li>• Processing efficiency: <span id="processing-efficiency" class="font-semibold">0%</span></li>
+                    <li>• Conversion rate: <span id="conversion-rate" class="font-semibold">0%</span></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/reports.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Set default date range (last 30 days)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+    
+    document.getElementById('start-date').value = startDate.toISOString().split('T')[0];
+    document.getElementById('end-date').value = endDate.toISOString().split('T')[0];
+    
+    // Load filters and report
+    loadMarketingFilters();
+    loadMarketingCampaignReport();
+    
+    // Event listeners
+    document.getElementById('apply-filters-btn').addEventListener('click', loadMarketingCampaignReport);
+    document.getElementById('reset-filters-btn').addEventListener('click', resetMarketingFilters);
+    document.getElementById('export-marketing-btn').addEventListener('click', exportMarketingCampaignReport);
+});
+</script>
+{% endblock %}
