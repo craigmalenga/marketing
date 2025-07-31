@@ -1,147 +1,546 @@
 {% extends "base.html" %}
 
-{% block title %}Upload Data - Marketing Analytics Platform{% endblock %}
+{% block title %}Upload Data - Marketing Analytics{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-    <!-- Page Header -->
-    <div class="bg-white shadow rounded-lg p-6">
-        <h2 class="text-2xl font-bold text-gray-900 mb-2">Upload Data Files</h2>
-        <p class="text-gray-600">Upload your weekly data files to update the analytics</p>
-    </div>
-
-    <!-- Upload Cards -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Applications Data Upload -->
-        <div class="upload-card">
-            <div class="upload-card-header">
-                <h3 class="text-lg font-semibold">Applications Data</h3>
-                <span class="upload-status" id="applications-status"></span>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <h1 class="text-3xl font-bold text-gray-900 mb-8">Upload Data Files</h1>
+    
+    <!-- Upload Instructions -->
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-8">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                </svg>
             </div>
-            <div class="upload-card-body">
-                <p class="text-sm text-gray-600 mb-4">
-                    Upload the affordability check data (passed/failed) Excel file.
-                    Expected sheets: "Affordability data - passed" and "Affordability data - failed"
-                </p>
-                <div class="upload-zone" id="applications-dropzone">
-                    <input type="file" id="applications-file" accept=".xlsx,.xls" class="hidden">
-                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
-                    <p class="text-gray-600">Drop file here or click to browse</p>
-                    <p class="text-sm text-gray-500">(.xlsx or .xls files only)</p>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-blue-800">Upload Instructions</h3>
+                <div class="mt-2 text-sm text-blue-700">
+                    <p>You can upload multiple files at once. Supported file types:</p>
+                    <ul class="list-disc list-inside mt-1">
+                        <li><strong>Applications Data:</strong> CSV files (passed/failed) or Excel with sheets</li>
+                        <li><strong>FLG Data:</strong> CSV file (all_leads) or Excel with "ALL" sheet</li>
+                        <li><strong>Ad Spend:</strong> Excel file with campaign spend data</li>
+                        <li><strong>Mappings:</strong> Word document (.docx) with FLG to Meta mappings</li>
+                    </ul>
                 </div>
-                <div id="applications-progress" class="hidden mt-4">
-                    <div class="progress-bar">
-                        <div class="progress-bar-fill" style="width: 0%"></div>
-                    </div>
-                    <p class="text-sm text-gray-600 mt-2">Uploading...</p>
-                </div>
-                <div id="applications-result" class="hidden mt-4"></div>
-            </div>
-        </div>
-
-        <!-- FLG Data Upload -->
-        <div class="upload-card">
-            <div class="upload-card-header">
-                <h3 class="text-lg font-semibold">FLG Full Data</h3>
-                <span class="upload-status" id="flg-status"></span>
-            </div>
-            <div class="upload-card-body">
-                <p class="text-sm text-gray-600 mb-4">
-                    Upload the FLG data Excel file with lead information, sale values, and status.
-                    Expected sheet: "ALL"
-                </p>
-                <div class="upload-zone" id="flg-dropzone">
-                    <input type="file" id="flg-file" accept=".xlsx,.xls" class="hidden">
-                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
-                    <p class="text-gray-600">Drop file here or click to browse</p>
-                    <p class="text-sm text-gray-500">(.xlsx or .xls files only)</p>
-                </div>
-                <div id="flg-progress" class="hidden mt-4">
-                    <div class="progress-bar">
-                        <div class="progress-bar-fill" style="width: 0%"></div>
-                    </div>
-                    <p class="text-sm text-gray-600 mt-2">Uploading...</p>
-                </div>
-                <div id="flg-result" class="hidden mt-4"></div>
-            </div>
-        </div>
-
-        <!-- Ad Spend Upload -->
-        <div class="upload-card">
-            <div class="upload-card-header">
-                <h3 class="text-lg font-semibold">Ad Spend Data</h3>
-                <span class="upload-status" id="adspend-status"></span>
-            </div>
-            <div class="upload-card-body">
-                <p class="text-sm text-gray-600 mb-4">
-                    Upload the ad spend Excel file with campaign and ad level spending data.
-                </p>
-                <div class="upload-zone" id="adspend-dropzone">
-                    <input type="file" id="adspend-file" accept=".xlsx,.xls" class="hidden">
-                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
-                    <p class="text-gray-600">Drop file here or click to browse</p>
-                    <p class="text-sm text-gray-500">(.xlsx or .xls files only)</p>
-                </div>
-                <div id="adspend-progress" class="hidden mt-4">
-                    <div class="progress-bar">
-                        <div class="progress-bar-fill" style="width: 0%"></div>
-                    </div>
-                    <p class="text-sm text-gray-600 mt-2">Uploading...</p>
-                </div>
-                <div id="adspend-result" class="hidden mt-4"></div>
-            </div>
-        </div>
-
-        <!-- FLG to Meta Mapping Upload -->
-        <div class="upload-card">
-            <div class="upload-card-header">
-                <h3 class="text-lg font-semibold">FLG to Meta Name Mapping</h3>
-                <span class="upload-status" id="mapping-status"></span>
-            </div>
-            <div class="upload-card-body">
-                <p class="text-sm text-gray-600 mb-4">
-                    Upload the Word document or Excel file containing FLG to Meta campaign name mappings.
-                </p>
-                <div class="upload-zone" id="mapping-dropzone">
-                    <input type="file" id="mapping-file" accept=".docx,.doc,.xlsx,.xls" class="hidden">
-                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
-                    <p class="text-gray-600">Drop file here or click to browse</p>
-                    <p class="text-sm text-gray-500">(.docx, .doc, .xlsx or .xls files)</p>
-                </div>
-                <div id="mapping-progress" class="hidden mt-4">
-                    <div class="progress-bar">
-                        <div class="progress-bar-fill" style="width: 0%"></div>
-                    </div>
-                    <p class="text-sm text-gray-600 mt-2">Uploading...</p>
-                </div>
-                <div id="mapping-result" class="hidden mt-4"></div>
             </div>
         </div>
     </div>
 
-    <!-- Upload History -->
+    <!-- Multi-file Upload Section -->
+    <div class="bg-white shadow rounded-lg p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Upload Multiple Files</h2>
+        
+        <div class="border-2 border-dashed border-gray-300 rounded-lg p-8">
+            <input type="file" id="multiFileInput" multiple accept=".csv,.xlsx,.xls,.docx,.doc" class="hidden">
+            
+            <div id="dropZone" class="text-center cursor-pointer">
+                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <p class="mt-2 text-sm text-gray-600">
+                    <span class="font-medium text-indigo-600 hover:text-indigo-500">Click to upload files</span>
+                    or drag and drop
+                </p>
+                <p class="text-xs text-gray-500 mt-1">CSV, XLSX, XLS, DOCX up to 50MB each</p>
+            </div>
+        </div>
+        
+        <!-- Selected Files List -->
+        <div id="selectedFiles" class="mt-4 hidden">
+            <h3 class="text-sm font-medium text-gray-900 mb-2">Selected Files:</h3>
+            <ul id="fileList" class="space-y-2"></ul>
+            
+            <button id="uploadAllBtn" class="mt-4 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                Upload All Files
+            </button>
+        </div>
+        
+        <!-- Upload Progress -->
+        <div id="uploadProgress" class="mt-6 hidden">
+            <h3 class="text-sm font-medium text-gray-900 mb-2">Upload Progress:</h3>
+            <div id="progressItems" class="space-y-3"></div>
+        </div>
+    </div>
+
+    <!-- Individual Upload Sections (collapsed by default) -->
+    <details class="bg-white shadow rounded-lg p-6 mb-6">
+        <summary class="cursor-pointer font-semibold text-gray-900">Individual File Upload (Legacy)</summary>
+        
+        <div class="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <!-- Applications Data -->
+            <div class="upload-section">
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Applications Data</h3>
+                <div class="upload-status mb-2" id="applications-status">
+                    <span class="status-icon">ℹ️</span>
+                    <span class="status-text">Upload CSV files or Excel with affordability check data</span>
+                </div>
+                <div class="upload-area" data-upload-type="applications">
+                    <input type="file" class="file-input" id="applications-file" accept=".csv,.xlsx,.xls">
+                    <div class="upload-placeholder">
+                        <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                        <p>Drop file here or click to browse</p>
+                        <p class="text-sm text-gray-500">(.csv, .xlsx, or .xls files only)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FLG Full Data -->
+            <div class="upload-section">
+                <h3 class="text-lg font-medium text-gray-900 mb-2">FLG Full Data</h3>
+                <div class="upload-status mb-2" id="flg-status">
+                    <span class="status-icon">ℹ️</span>
+                    <span class="status-text">Upload CSV or Excel file with lead information</span>
+                </div>
+                <div class="upload-area" data-upload-type="flg-data">
+                    <input type="file" class="file-input" id="flg-file" accept=".csv,.xlsx,.xls">
+                    <div class="upload-placeholder">
+                        <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                        <p>Drop file here or click to browse</p>
+                        <p class="text-sm text-gray-500">(.csv, .xlsx, or .xls files only)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ad Spend Data -->
+            <div class="upload-section">
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Ad Spend Data</h3>
+                <div class="upload-status mb-2" id="ad-spend-status">
+                    <span class="status-icon">ℹ️</span>
+                    <span class="status-text">Upload Excel file with campaign spend data</span>
+                </div>
+                <div class="upload-area" data-upload-type="ad-spend">
+                    <input type="file" class="file-input" id="ad-spend-file" accept=".xlsx,.xls">
+                    <div class="upload-placeholder">
+                        <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                        <p>Drop file here or click to browse</p>
+                        <p class="text-sm text-gray-500">(.xlsx or .xls files only)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FLG to Meta Mapping -->
+            <div class="upload-section">
+                <h3 class="text-lg font-medium text-gray-900 mb-2">FLG to Meta Name Mapping</h3>
+                <div class="upload-status mb-2" id="mapping-status">
+                    <span class="status-icon">ℹ️</span>
+                    <span class="status-text">Upload Word document with campaign mappings</span>
+                </div>
+                <div class="upload-area" data-upload-type="flg-meta-mapping">
+                    <input type="file" class="file-input" id="mapping-file" accept=".docx,.doc,.xlsx,.xls">
+                    <div class="upload-placeholder">
+                        <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                        <p>Drop file here or click to browse</p>
+                        <p class="text-sm text-gray-500">(.docx, .doc, .xlsx or .xls files)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </details>
+
+    <!-- Recent Upload History -->
     <div class="bg-white shadow rounded-lg p-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Upload History</h3>
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File Name</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Upload Date</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Records</th>
-                    </tr>
-                </thead>
-                <tbody id="upload-history-tbody" class="bg-white divide-y divide-gray-200">
-                    <!-- Upload history will be populated here -->
-                </tbody>
-            </table>
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Recent Upload History</h2>
+        <div id="uploadHistory" class="space-y-3">
+            <p class="text-gray-500">Loading upload history...</p>
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/upload.js') }}"></script>
+<style>
+.upload-section {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+}
+
+.upload-area {
+    border: 2px dashed #d1d5db;
+    border-radius: 0.5rem;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background-color: #f9fafb;
+    position: relative;
+    min-height: 150px;
+}
+
+.upload-area:hover {
+    border-color: #6366f1;
+    background-color: #eef2ff;
+}
+
+.upload-area.drag-over {
+    border-color: #6366f1;
+    background-color: #e0e7ff;
+}
+
+.upload-area.uploading {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.file-input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.upload-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 1rem;
+    color: #9ca3af;
+}
+
+.upload-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+}
+
+.upload-status.success {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.upload-status.error {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.upload-status.processing {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem;
+    background-color: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+}
+
+.file-item .file-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.file-item .file-icon {
+    width: 24px;
+    height: 24px;
+    color: #6b7280;
+}
+
+.progress-item {
+    background-color: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    padding: 1rem;
+}
+
+.progress-bar {
+    height: 8px;
+    background-color: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background-color: #6366f1;
+    transition: width 0.3s ease;
+}
+
+#dropZone:hover {
+    background-color: #f9fafb;
+}
+
+#dropZone.drag-over {
+    background-color: #eef2ff;
+    border-color: #6366f1;
+}
+</style>
+
+<script>
+// Multi-file upload functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const multiFileInput = document.getElementById('multiFileInput');
+    const dropZone = document.getElementById('dropZone');
+    const selectedFiles = document.getElementById('selectedFiles');
+    const fileList = document.getElementById('fileList');
+    const uploadAllBtn = document.getElementById('uploadAllBtn');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const progressItems = document.getElementById('progressItems');
+    
+    let filesToUpload = [];
+    
+    // Click to select files
+    dropZone.addEventListener('click', () => multiFileInput.click());
+    
+    // Handle file selection
+    multiFileInput.addEventListener('change', (e) => {
+        handleFiles(e.target.files);
+    });
+    
+    // Drag and drop
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('drag-over');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        handleFiles(e.dataTransfer.files);
+    });
+    
+    function handleFiles(files) {
+        filesToUpload = Array.from(files);
+        displaySelectedFiles();
+    }
+    
+    function displaySelectedFiles() {
+        fileList.innerHTML = '';
+        
+        filesToUpload.forEach((file, index) => {
+            const fileType = detectFileType(file);
+            const li = document.createElement('li');
+            li.className = 'file-item';
+            li.innerHTML = `
+                <div class="file-info">
+                    <svg class="file-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <div>
+                        <p class="font-medium text-sm">${file.name}</p>
+                        <p class="text-xs text-gray-500">Type: ${fileType} | Size: ${formatFileSize(file.size)}</p>
+                    </div>
+                </div>
+                <button onclick="removeFile(${index})" class="text-red-600 hover:text-red-800">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            `;
+            fileList.appendChild(li);
+        });
+        
+        selectedFiles.classList.toggle('hidden', filesToUpload.length === 0);
+    }
+    
+    window.removeFile = function(index) {
+        filesToUpload.splice(index, 1);
+        displaySelectedFiles();
+    };
+    
+    function detectFileType(file) {
+        const filename = file.name.toLowerCase();
+        const ext = filename.split('.').pop();
+        
+        // Check filename patterns
+        if (filename.includes('affordability') || filename.includes('passed') || filename.includes('failed')) {
+            return 'Applications Data';
+        }
+        if (filename.includes('all_leads') || filename.includes('flg')) {
+            return 'FLG Data';
+        }
+        if (filename.includes('spend') || filename.includes('cost') || filename.includes('campaign')) {
+            return 'Ad Spend';
+        }
+        if (filename.includes('mapping') || filename.includes('tracking')) {
+            return 'Mapping File';
+        }
+        
+        // Check by extension
+        if (ext === 'csv') {
+            return 'CSV Data';
+        }
+        if (ext === 'xlsx' || ext === 'xls') {
+            return 'Excel Data';
+        }
+        if (ext === 'docx' || ext === 'doc') {
+            return 'Word Document';
+        }
+        
+        return 'Unknown';
+    }
+    
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    // Upload all files
+    uploadAllBtn.addEventListener('click', async () => {
+        if (filesToUpload.length === 0) return;
+        
+        uploadProgress.classList.remove('hidden');
+        progressItems.innerHTML = '';
+        uploadAllBtn.disabled = true;
+        
+        for (const file of filesToUpload) {
+            await uploadFile(file);
+        }
+        
+        uploadAllBtn.disabled = false;
+        
+        // Refresh upload history
+        setTimeout(() => {
+            loadUploadHistory();
+        }, 1000);
+    });
+    
+    async function uploadFile(file) {
+        const fileType = detectFileType(file);
+        const progressId = `progress-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Create progress item
+        const progressItem = document.createElement('div');
+        progressItem.className = 'progress-item';
+        progressItem.id = progressId;
+        progressItem.innerHTML = `
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-sm font-medium">${file.name}</span>
+                <span class="text-xs text-gray-500">Detecting type...</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-bar-fill" style="width: 0%"></div>
+            </div>
+            <div class="mt-2 text-xs text-gray-600 status-message">Preparing upload...</div>
+        `;
+        progressItems.appendChild(progressItem);
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // Determine endpoint based on file type
+        let endpoint = '/api/upload/';
+        if (fileType === 'Applications Data' || file.name.toLowerCase().includes('affordability')) {
+            endpoint += 'applications';
+        } else if (fileType === 'FLG Data' || file.name.toLowerCase().includes('leads')) {
+            endpoint += 'flg-data';
+        } else if (fileType === 'Ad Spend' || file.name.toLowerCase().includes('spend')) {
+            endpoint += 'ad-spend';
+        } else if (fileType === 'Mapping File' || file.name.toLowerCase().includes('mapping')) {
+            endpoint += 'flg-meta-mapping';
+        } else {
+            // Try to determine by extension
+            if (file.name.endsWith('.csv')) {
+                endpoint += 'applications'; // Default CSV to applications
+            } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                endpoint += 'ad-spend'; // Default Excel to ad spend
+            } else {
+                endpoint += 'flg-meta-mapping'; // Default Word to mapping
+            }
+        }
+        
+        try {
+            // Update status
+            updateProgressItem(progressId, 10, 'Uploading file...');
+            
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                body: formData
+            });
+            
+            updateProgressItem(progressId, 50, 'Processing data...');
+            
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                updateProgressItem(progressId, 100, `Success! Processed ${result.records_processed || 0} records`, 'success');
+                
+                // Show additional details if available
+                if (result.details) {
+                    let details = [];
+                    if (result.passed_count !== undefined) {
+                        details.push(`Passed: ${result.passed_count}`);
+                    }
+                    if (result.failed_count !== undefined) {
+                        details.push(`Failed: ${result.failed_count}`);
+                    }
+                    if (result.new_products && result.new_products.length > 0) {
+                        details.push(`New products: ${result.new_products.join(', ')}`);
+                    }
+                    if (result.total_spend !== undefined) {
+                        details.push(`Total spend: £${result.total_spend.toFixed(2)}`);
+                    }
+                    
+                    if (details.length > 0) {
+                        const statusMsg = progressItem.querySelector('.status-message');
+                        statusMsg.innerHTML += '<br>' + details.join(' | ');
+                    }
+                }
+            } else {
+                updateProgressItem(progressId, 100, `Error: ${result.error || 'Upload failed'}`, 'error');
+            }
+        } catch (error) {
+            updateProgressItem(progressId, 100, `Error: ${error.message}`, 'error');
+        }
+    }
+    
+    function updateProgressItem(progressId, percentage, message, status = 'processing') {
+        const item = document.getElementById(progressId);
+        if (!item) return;
+        
+        const progressBar = item.querySelector('.progress-bar-fill');
+        const statusMsg = item.querySelector('.status-message');
+        const statusSpan = item.querySelector('.text-gray-500');
+        
+        progressBar.style.width = `${percentage}%`;
+        statusMsg.textContent = message;
+        
+        if (status === 'success') {
+            progressBar.style.backgroundColor = '#10b981';
+            statusSpan.textContent = 'Complete';
+            statusSpan.className = 'text-xs text-green-600';
+        } else if (status === 'error') {
+            progressBar.style.backgroundColor = '#ef4444';
+            statusSpan.textContent = 'Failed';
+            statusSpan.className = 'text-xs text-red-600';
+        } else {
+            statusSpan.textContent = 'Processing';
+        }
+    }
+    
+    // Load upload history
+    loadUploadHistory();
+});
+
+// Legacy upload functionality (kept for individual uploads)
+if (window.uploadModule) {
+    uploadModule.init();
+}
+</script>
 {% endblock %}
