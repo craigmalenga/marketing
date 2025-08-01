@@ -1,187 +1,239 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - Marketing Analytics Platform{% endblock %}
+{% block title %}Dashboard - Marketing Analytics{% endblock %}
 
 {% block content %}
-<!-- HERO -->
-<section class="hero">
+<div class="hero-section">
+    <h1>Marketing Analytics Dashboard</h1>
+    <p>Track performance, analyze campaigns, and optimize your marketing strategy</p>
+</div>
+
+<div class="info-boxes">
     <div class="info-box">
-        <h2>Marketing Analytics Dashboard</h2>
-        <p>Real-time insights into campaign performance, credit applications, and ROI metrics. Make data-driven decisions to optimize your marketing spend.</p>
-    </div>
-</section>
-
-<!-- Summary Cards -->
-<div class="metrics-grid">
-    <div class="metric-card">
-        <div class="metric-label">Total Enquiries</div>
-        <div class="metric-value" id="total-enquiries">-</div>
-        <div style="color: var(--primary-cyan); font-size: 0.9rem;">
-            <i class="fas fa-arrow-up"></i>
-            <span id="week-enquiries">-</span> this week
+        <h3>Quick Actions</h3>
+        <div class="quick-actions">
+            <a href="/upload" class="btn btn-primary">Upload Data</a>
+            <a href="/credit-performance" class="btn btn-secondary">View Reports</a>
         </div>
     </div>
-
-    <div class="metric-card">
-        <div class="metric-label">Applications</div>
-        <div class="metric-value positive" id="total-applications">-</div>
-        <div style="color: var(--primary-cyan); font-size: 0.9rem;">
-            <i class="fas fa-arrow-up"></i>
-            <span id="week-applications">-</span> this week
-        </div>
+    <div class="info-box">
+        <h3>System Status</h3>
+        <p>Status: <span id="system-status" style="font-weight: bold;">Checking...</span></p>
+        <p>Database: <span id="db-type" style="font-weight: bold;">Checking...</span></p>
     </div>
-
-    <div class="metric-card">
-        <div class="metric-label">Approval Rate</div>
-        <div class="metric-value" id="approval-rate">-</div>
-        <div style="color: #666; font-size: 0.9rem;">Overall average</div>
-    </div>
-
-    <div class="metric-card">
-        <div class="metric-label">Weekly Spend</div>
-        <div class="metric-value" id="week-spend">-</div>
-        <div style="color: #666; font-size: 0.9rem;">Marketing budget</div>
+    <div class="info-box">
+        <h3>Data Overview</h3>
+        <p>Total Enquiries: <span id="total-enquiries" style="font-weight: bold;">0</span></p>
+        <p>Total Applications: <span id="total-applications" style="font-weight: bold;">0</span></p>
     </div>
 </div>
 
-<!-- Charts Section -->
-<div class="card">
-    <h3>Performance Trends</h3>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-        <div>
-            <h4>Weekly Trends</h4>
-            <div class="chart-container">
-                <canvas id="weekly-trends-chart"></canvas>
+<div class="dashboard-container" style="max-width: 1400px; margin: 2rem auto; padding: 0 2rem;">
+    <!-- Summary Section -->
+    <div style="background: white; border-radius: 8px; padding: 2rem; margin-bottom: 2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h2>Weekly Performance</h2>
+        <div id="weekly-summary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+            <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 4px;">
+                <div style="font-size: 2rem; font-weight: bold; color: #18124C;" id="week-enquiries">0</div>
+                <div style="color: #666; font-size: 0.9rem;">Weekly Enquiries</div>
             </div>
-        </div>
-        <div>
-            <h4>Top Products by Applications</h4>
-            <div class="chart-container">
-                <canvas id="product-performance-chart"></canvas>
+            <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 4px;">
+                <div style="font-size: 2rem; font-weight: bold; color: #18124C;" id="week-applications">0</div>
+                <div style="color: #666; font-size: 0.9rem;">Weekly Applications</div>
+            </div>
+            <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 4px;">
+                <div style="font-size: 2rem; font-weight: bold; color: #18124C;" id="week-spend">£0</div>
+                <div style="color: #666; font-size: 0.9rem;">Weekly Spend</div>
+            </div>
+            <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 4px;">
+                <div style="font-size: 2rem; font-weight: bold; color: #18124C;" id="approval-rate">0%</div>
+                <div style="color: #666; font-size: 0.9rem;">Approval Rate</div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Upload Status -->
-<div class="card">
-    <h3>Data Upload Status</h3>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
-        <div style="background: #f9f9f9; padding: 16px; border-radius: 4px;">
-            <h4 style="margin: 0 0 8px; color: var(--primary-navy);">Applications Data</h4>
-            <p style="margin: 4px 0; font-size: 0.9rem;">Last upload: <span id="applications-last-upload" style="font-weight: 700;">Not uploaded</span></p>
-            <p style="margin: 4px 0; font-size: 0.9rem;">Total records: <span id="applications-total" style="font-weight: 700;">0</span></p>
+    <!-- Charts Section -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 2rem; margin-bottom: 2rem;">
+        <!-- Simple Chart Container -->
+        <div style="background: white; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3>Weekly Trends</h3>
+            <div style="height: 300px; position: relative;">
+                <canvas id="trendsChart"></canvas>
+            </div>
         </div>
-        <div style="background: #f9f9f9; padding: 16px; border-radius: 4px;">
-            <h4 style="margin: 0 0 8px; color: var(--primary-navy);">FLG Data</h4>
-            <p style="margin: 4px 0; font-size: 0.9rem;">Last upload: <span id="flg-last-upload" style="font-weight: 700;">Not uploaded</span></p>
-            <p style="margin: 4px 0; font-size: 0.9rem;">Total records: <span id="flg-total" style="font-weight: 700;">0</span></p>
+        
+        <!-- Product Mix -->
+        <div style="background: white; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h3>Product Mix</h3>
+            <div style="height: 300px; position: relative;">
+                <canvas id="productChart"></canvas>
+            </div>
         </div>
-        <div style="background: #f9f9f9; padding: 16px; border-radius: 4px;">
-            <h4 style="margin: 0 0 8px; color: var(--primary-navy);">Ad Spend Data</h4>
-            <p style="margin: 4px 0; font-size: 0.9rem;">Last upload: <span id="adspend-last-upload" style="font-weight: 700;">Not uploaded</span></p>
-            <p style="margin: 4px 0; font-size: 0.9rem;">Total records: <span id="adspend-total" style="font-weight: 700;">0</span></p>
+    </div>
+
+    <!-- Quick Links -->
+    <div style="background: white; border-radius: 8px; padding: 2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h2>Reports & Tools</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-top: 1rem;">
+            <a href="/credit-performance" style="display: block; padding: 1.5rem; border: 2px solid #e5e7eb; border-radius: 8px; text-decoration: none; color: inherit; transition: all 0.2s;">
+                <h3 style="color: #18124C; margin-bottom: 0.5rem;">Credit Performance</h3>
+                <p style="color: #666; margin: 0; font-size: 0.9rem;">View credit performance by product</p>
+            </a>
+            <a href="/marketing-campaign" style="display: block; padding: 1.5rem; border: 2px solid #e5e7eb; border-radius: 8px; text-decoration: none; color: inherit; transition: all 0.2s;">
+                <h3 style="color: #18124C; margin-bottom: 0.5rem;">Marketing Campaign</h3>
+                <p style="color: #666; margin: 0; font-size: 0.9rem;">Analyze campaign effectiveness</p>
+            </a>
+            <a href="/upload" style="display: block; padding: 1.5rem; border: 2px solid #e5e7eb; border-radius: 8px; text-decoration: none; color: inherit; transition: all 0.2s;">
+                <h3 style="color: #18124C; margin-bottom: 0.5rem;">Upload Data</h3>
+                <p style="color: #666; margin: 0; font-size: 0.9rem;">Import new data files</p>
+            </a>
+            <a href="/admin" style="display: block; padding: 1.5rem; border: 2px solid #e5e7eb; border-radius: 8px; text-decoration: none; color: inherit; transition: all 0.2s;">
+                <h3 style="color: #18124C; margin-bottom: 0.5rem;">Admin Panel</h3>
+                <p style="color: #666; margin: 0; font-size: 0.9rem;">Database management</p>
+            </a>
         </div>
     </div>
 </div>
 
-<!-- Quick Actions -->
-<div class="card">
-    <h3>Quick Actions</h3>
-    <div style="display: flex; flex-wrap: wrap; gap: 16px; justify-content: center;">
-        <a href="{{ url_for('upload_page') }}" class="btn btn-success">
-            <i class="fas fa-upload"></i>Upload Data
-        </a>
-        <a href="{{ url_for('credit_performance') }}" class="btn">
-            <i class="fas fa-chart-bar"></i>View Credit Report
-        </a>
-        <a href="{{ url_for('marketing_campaign') }}" class="btn">
-            <i class="fas fa-bullhorn"></i>Campaign Report
-        </a>
-        <a href="/product-category-analysis" class="btn">
-            <i class="fas fa-chart-pie"></i>Product Category Analysis
-        </a>
-        <button class="btn btn-secondary" onclick="exportAllReports()">
-            <i class="fas fa-download"></i>Export All Reports
-        </button>
-    </div>
-</div>
-{% endblock %}
+<!-- Include Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-{% block extra_scripts %}
 <script>
-// Load dashboard data on page load
+// Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('Dashboard initializing...');
+    checkSystemHealth();
     loadDashboardData();
-    loadUploadStatus();
-    initializeCharts();
 });
 
+// Check system health
+function checkSystemHealth() {
+    fetch('/api/health')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('system-status').textContent = data.status === 'ok' ? 'Online' : 'Error';
+            document.getElementById('system-status').style.color = data.status === 'ok' ? '#22c55e' : '#ef4444';
+            
+            // Extract database type
+            if (data.database && data.database.includes('PostgreSQL')) {
+                document.getElementById('db-type').textContent = 'PostgreSQL';
+            } else if (data.database && data.database.includes('healthy')) {
+                document.getElementById('db-type').textContent = 'Connected';
+            } else {
+                document.getElementById('db-type').textContent = 'SQLite';
+            }
+        })
+        .catch(error => {
+            console.error('Health check failed:', error);
+            document.getElementById('system-status').textContent = 'Offline';
+            document.getElementById('system-status').style.color = '#ef4444';
+        });
+}
+
+// Load dashboard data
 function loadDashboardData() {
+    // Load summary data
     fetch('/api/reports/summary')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('Summary endpoint failed');
+            return response.json();
+        })
         .then(data => {
-            if (data.success) {
-                document.getElementById('total-enquiries').textContent = data.data.total_enquiries.toLocaleString();
-                document.getElementById('week-enquiries').textContent = data.data.week_enquiries.toLocaleString();
-                document.getElementById('total-applications').textContent = data.data.total_applications.toLocaleString();
-                document.getElementById('week-applications').textContent = data.data.week_applications.toLocaleString();
-                document.getElementById('approval-rate').textContent = (data.data.approval_rate * 100).toFixed(1) + '%';
-                document.getElementById('week-spend').textContent = '£' + data.data.week_spend.toFixed(0);
+            if (data.success && data.data) {
+                document.getElementById('total-enquiries').textContent = (data.data.total_enquiries || 0).toLocaleString();
+                document.getElementById('total-applications').textContent = (data.data.total_applications || 0).toLocaleString();
+                document.getElementById('week-enquiries').textContent = (data.data.week_enquiries || 0).toLocaleString();
+                document.getElementById('week-applications').textContent = (data.data.week_applications || 0).toLocaleString();
+                document.getElementById('week-spend').textContent = '£' + (data.data.week_spend || 0).toLocaleString();
+                
+                const approvalRate = (data.data.approval_rate || 0) * 100;
+                document.getElementById('approval-rate').textContent = approvalRate.toFixed(1) + '%';
             }
         })
-        .catch(error => console.error('Error loading dashboard data:', error));
+        .catch(error => {
+            console.error('Error loading summary:', error);
+            // Leave default values
+        });
+    
+    // Try to load chart data
+    loadCharts();
 }
 
-function loadUploadStatus() {
-    fetch('/api/upload/check-status')
-        .then(response => response.json())
+// Load charts with error handling
+function loadCharts() {
+    // Try weekly trends
+    fetch('/api/reports/dashboard-charts')
+        .then(response => {
+            if (!response.ok) throw new Error('Charts endpoint failed');
+            return response.json();
+        })
         .then(data => {
-            if (data.success) {
-                // Applications
-                if (data.status.applications.last_upload) {
-                    const date = new Date(data.status.applications.last_upload);
-                    document.getElementById('applications-last-upload').textContent = date.toLocaleString('en-GB');
-                }
-                document.getElementById('applications-total').textContent = data.status.applications.total_records.toLocaleString();
-                
-                // FLG Data
-                if (data.status.flg_data.last_upload) {
-                    const date = new Date(data.status.flg_data.last_upload);
-                    document.getElementById('flg-last-upload').textContent = date.toLocaleString('en-GB');
-                }
-                document.getElementById('flg-total').textContent = data.status.flg_data.total_records.toLocaleString();
-                
-                // Ad Spend
-                if (data.status.ad_spend.last_upload) {
-                    const date = new Date(data.status.ad_spend.last_upload);
-                    document.getElementById('adspend-last-upload').textContent = date.toLocaleString('en-GB');
-                }
-                document.getElementById('adspend-total').textContent = data.status.ad_spend.total_records.toLocaleString();
+            if (data.success && data.weekly_trends) {
+                renderTrendsChart(data.weekly_trends);
+            } else {
+                showNoDataChart('trendsChart');
             }
         })
-        .catch(error => console.error('Error loading upload status:', error));
+        .catch(error => {
+            console.error('Error loading charts:', error);
+            showNoDataChart('trendsChart');
+        });
+    
+    // Try product mix
+    fetch('/api/reports/product-mix')
+        .then(response => {
+            if (!response.ok) throw new Error('Product mix endpoint failed');
+            return response.json();
+        })
+        .then(data => {
+            if (data.success && data.product_mix && data.product_mix.length > 0) {
+                renderProductChart(data.product_mix);
+            } else {
+                showNoDataChart('productChart');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading product mix:', error);
+            showNoDataChart('productChart');
+        });
 }
 
-function initializeCharts() {
-    // Weekly Trends Chart
-    const trendsCtx = document.getElementById('weekly-trends-chart').getContext('2d');
-    const trendsChart = new Chart(trendsCtx, {
+// Show no data message on chart
+function showNoDataChart(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    const ctx = canvas.getContext('2d');
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw message
+    ctx.font = '16px Arial';
+    ctx.fillStyle = '#999';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('No data available', canvas.width / 2, canvas.height / 2);
+}
+
+// Render trends chart
+function renderTrendsChart(data) {
+    const ctx = document.getElementById('trendsChart').getContext('2d');
+    
+    new Chart(ctx, {
         type: 'line',
         data: {
-            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            labels: data.map(d => d.date),
             datasets: [{
                 label: 'Enquiries',
-                data: [0, 0, 0, 0, 0, 0, 0],
+                data: data.map(d => d.enquiries),
                 borderColor: '#3BF7CA',
                 backgroundColor: 'rgba(59, 247, 202, 0.1)',
-                tension: 0.1
+                tension: 0.4
             }, {
                 label: 'Applications',
-                data: [0, 0, 0, 0, 0, 0, 0],
+                data: data.map(d => d.applications),
                 borderColor: '#18124C',
                 backgroundColor: 'rgba(24, 18, 76, 0.1)',
-                tension: 0.1
+                tension: 0.4
             }]
         },
         options: {
@@ -189,35 +241,7 @@ function initializeCharts() {
             maintainAspectRatio: false,
             plugins: {
                 legend: {
-                    position: 'top',
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        }
-    });
-
-    // Product Performance Chart
-    const productCtx = document.getElementById('product-performance-chart').getContext('2d');
-    const productChart = new Chart(productCtx, {
-        type: 'bar',
-        data: {
-            labels: ['Loading...'],
-            datasets: [{
-                label: 'Applications',
-                data: [0],
-                backgroundColor: '#18124C'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
+                    position: 'top'
                 }
             },
             scales: {
@@ -229,8 +253,45 @@ function initializeCharts() {
     });
 }
 
-function exportAllReports() {
-    alert('Export functionality will be implemented in the next update.');
+// Render product chart
+function renderProductChart(data) {
+    const ctx = document.getElementById('productChart').getContext('2d');
+    
+    // Take top 6 categories
+    const topData = data.slice(0, 6);
+    
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: topData.map(d => d.category + ' (' + d.percentage + '%)'),
+            datasets: [{
+                data: topData.map(d => d.count),
+                backgroundColor: [
+                    '#18124C',
+                    '#3BF7CA', 
+                    '#E97132',
+                    '#A02B93',
+                    '#F7CA3B',
+                    '#666666'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        padding: 10,
+                        font: {
+                            size: 11
+                        }
+                    }
+                }
+            }
+        }
+    });
 }
 </script>
 {% endblock %}
