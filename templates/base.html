@@ -1,144 +1,560 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Marketing Analytics Platform{% endblock %}</title>
-    
-    <!-- Force no-cache -->
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    
-    <!-- Favicons -->
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}" />
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32x32.png') }}" />
-    <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon-32x32.png') }}" />
-    
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    
-    {% block extra_head %}{% endblock %}
-</head>
-<body>
-    <!-- HEADER -->
-    <header>
-        <div class="top-header">
-            <img src="{{ url_for('static', filename='img/store_logo.png') }}" alt="Logo" />
-            <div class="nav-links">
-                <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
-                    Dashboard
-                </a>
-                <a href="{{ url_for('upload_page') }}" class="nav-link {% if request.endpoint == 'upload_page' %}active{% endif %}">
-                    Upload Data
-                </a>
-                <a href="{{ url_for('credit_performance') }}" class="nav-link {% if request.endpoint == 'credit_performance' %}active{% endif %}">
-                    Credit Performance
-                </a>
-                <a href="{{ url_for('marketing_campaign') }}" class="nav-link {% if request.endpoint == 'marketing_campaign' %}active{% endif %}">
-                    Marketing Campaign
-                </a>
-                <a href="{{ url_for('product_category_analysis') }}" class="nav-link {% if request.endpoint == 'product_category_analysis' %}active{% endif %}">
-                    Product Analysis
-                </a>
-                <button id="status-mapping-btn" class="btn btn-secondary">
-                    <i class="fas fa-cogs"></i>Status Mappings
-                </button>
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Marketing Analytics{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <h1>Marketing Analytics Dashboard</h1>
+    <p>Track performance, analyze campaigns, and optimize your marketing strategy</p>
+</div>
+
+<div class="info-boxes">
+    <div class="info-box">
+        <h3>Quick Actions</h3>
+        <div class="quick-actions">
+            <a href="/upload" class="btn btn-primary">Upload Data</a>
+            <a href="/credit-performance" class="btn btn-secondary">View Reports</a>
+        </div>
+    </div>
+    <div class="info-box">
+        <h3>System Status</h3>
+        <p>Last data upload: <span id="last-upload">Loading...</span></p>
+        <p>Total records: <span id="total-records">Loading...</span></p>
+    </div>
+    <div class="info-box">
+        <h3>Weekly Performance</h3>
+        <p>Enquiries: <span id="week-enquiries">Loading...</span></p>
+        <p>Applications: <span id="week-applications">Loading...</span></p>
+    </div>
+</div>
+
+<div class="dashboard-container">
+    <!-- Summary Cards -->
+    <div class="summary-cards">
+        <div class="summary-card">
+            <h3>Total Enquiries</h3>
+            <div class="metric-value" id="total-enquiries">-</div>
+            <div class="metric-change" id="enquiries-change"></div>
+        </div>
+        <div class="summary-card">
+            <h3>Applications</h3>
+            <div class="metric-value" id="total-applications">-</div>
+            <div class="metric-change" id="applications-change"></div>
+        </div>
+        <div class="summary-card">
+            <h3>Weekly Spend</h3>
+            <div class="metric-value" id="weekly-spend">-</div>
+            <div class="metric-change" id="spend-change"></div>
+        </div>
+        <div class="summary-card">
+            <h3>Conversion Rate</h3>
+            <div class="metric-value" id="conversion-rate">-</div>
+            <div class="metric-change" id="conversion-change"></div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="charts-section">
+        <!-- Weekly Trends Chart -->
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3>Weekly Trends</h3>
+                <button class="btn btn-sm" onclick="refreshCharts()">Refresh</button>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="weeklyTrendsChart"></canvas>
             </div>
         </div>
-        <div class="top-bar">
-            <div class="title">Marketing Analytics Platform</div>
-        </div>
-    </header>
 
-    <!-- MAIN CONTENT -->
-    <main>
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">
-                        <i class="fas fa-{% if category == 'success' %}check-circle{% elif category == 'error' %}exclamation-circle{% elif category == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        {% block content %}{% endblock %}
-    </main>
-
-    <!-- FOOTER -->
-    <footer>
-        <div class="footer-left">
-            <img src="{{ url_for('static', filename='img/store_logo.png') }}" alt="Logo" />
-            <p>
-                Smarterbuys Store and Mammoth Loans are a trading
-                style of Mammoth Finance Limited
-            </p>
-            <p>
-                Registered Address:
-                Baird House, City West Business Park,
-                Scotswood Road, Newcastle Upon Tyne, NE4 7DF
-            </p>
-            <p>
-                A Limited Company Registered in England and Wales
-                No. 07526461
-            </p>
-            <p>
-                Smarterbuys Store and Mammoth Loans are authorised
-                and regulated by the Financial Conduct Authority.
-                Firm Reference Number: 692676. Registered with the
-                Information Commissioner's Office: ZB627106.
-            </p>
-        </div>
-        <div class="footer-contact">
-            <p>
-                <img src="{{ url_for('static', filename='img/phone.png') }}" class="icon" alt="Phone" />
-                0300 500 0975
-            </p>
-            <p>
-                <img src="{{ url_for('static', filename='img/mail.png') }}" class="icon" alt="Mail" />
-                queries@smarterbuys.co.uk
-            </p>
-            <p>
-                <img src="{{ url_for('static', filename='img/map.png') }}" class="icon" alt="Map" />
-                <a href="https://goo.gl/maps/..." target="_blank">View on map</a>
-            </p>
-        </div>
-        <div class="footer-bottom">© 2019–2025 Smarterbuys Store</div>
-    </footer>
-
-    <!-- Status Mapping Modal -->
-    <div id="status-mapping-modal" class="modal hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Status Variant Mappings</h3>
-                <button class="modal-close">&times;</button>
+        <!-- Product Performance Chart -->
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3>Product Performance</h3>
             </div>
-            <div class="modal-body">
-                <div style="margin-bottom: 16px;">
-                    <button id="add-status-btn" class="btn btn-success">
-                        <i class="fas fa-plus"></i>Add New Status
-                    </button>
-                    <button id="initialize-defaults-btn" class="btn">
-                        <i class="fas fa-sync"></i>Initialize Defaults
-                    </button>
+            <div class="chart-wrapper">
+                <canvas id="productPerformanceChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Product Mix Donut Chart -->
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3>Product Mix</h3>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="productMixChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Weekly Summary -->
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3>Weekly Summary</h3>
+            </div>
+            <div class="weekly-summary">
+                <div class="summary-item">
+                    <span class="label">Top Campaign:</span>
+                    <span class="value" id="top-campaign">-</span>
                 </div>
-                <div id="status-mappings-list" class="table-container">
-                    <!-- Status mappings will be loaded here -->
+                <div class="summary-item">
+                    <span class="label">Cost per Enquiry:</span>
+                    <span class="value" id="cost-per-enquiry">-</span>
+                </div>
+                <div class="summary-item">
+                    <span class="label">Approval Rate:</span>
+                    <span class="value" id="approval-rate">-</span>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Base JavaScript -->
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-    {% block extra_scripts %}{% endblock %}
-</body>
-</html>
+    <!-- Recent Activity -->
+    <div class="activity-section">
+        <h2>Recent Activity</h2>
+        <div class="activity-list" id="activity-list">
+            <p>Loading recent activity...</p>
+        </div>
+    </div>
+</div>
+
+<style>
+.dashboard-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+}
+
+.summary-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.summary-card h3 {
+    color: #666;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+}
+
+.metric-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #18124C;
+    margin-bottom: 0.5rem;
+}
+
+.metric-change {
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.metric-change.positive {
+    color: #22c55e;
+}
+
+.metric-change.negative {
+    color: #ef4444;
+}
+
+.charts-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 2rem;
+    margin-bottom: 3rem;
+}
+
+.chart-container {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.chart-header h3 {
+    margin: 0;
+    color: #18124C;
+}
+
+.chart-wrapper {
+    position: relative;
+    height: 300px;
+}
+
+.weekly-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.summary-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.summary-item .label {
+    color: #666;
+}
+
+.summary-item .value {
+    font-weight: bold;
+    color: #18124C;
+}
+
+.activity-section {
+    background: white;
+    border-radius: 8px;
+    padding: 2rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.activity-list {
+    margin-top: 1rem;
+}
+
+.activity-item {
+    padding: 1rem;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Chart instances
+let weeklyTrendsChart = null;
+let productPerformanceChart = null;
+let productMixChart = null;
+
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboardData();
+    loadCharts();
+    loadRecentActivity();
+});
+
+// Load dashboard summary data
+async function loadDashboardData() {
+    try {
+        // Load summary statistics
+        const summaryResponse = await fetch('/api/reports/summary');
+        const summaryData = await summaryResponse.json();
+        
+        if (summaryData.success) {
+            const data = summaryData.data;
+            
+            // Update summary cards
+            document.getElementById('total-enquiries').textContent = data.total_enquiries.toLocaleString();
+            document.getElementById('total-applications').textContent = data.total_applications.toLocaleString();
+            document.getElementById('weekly-spend').textContent = '£' + data.week_spend.toLocaleString();
+            
+            const conversionRate = data.total_applications > 0 
+                ? ((data.total_applications / data.total_enquiries) * 100).toFixed(1) 
+                : 0;
+            document.getElementById('conversion-rate').textContent = conversionRate + '%';
+            
+            // Update info boxes
+            document.getElementById('week-enquiries').textContent = data.week_enquiries.toLocaleString();
+            document.getElementById('week-applications').textContent = data.week_applications.toLocaleString();
+        }
+        
+        // Load weekly comparison data
+        const weeklyResponse = await fetch('/api/reports/weekly-summary');
+        const weeklyData = await weeklyResponse.json();
+        
+        if (weeklyData.success) {
+            // Update change indicators
+            updateChangeIndicator('enquiries-change', weeklyData.changes.enquiries);
+            updateChangeIndicator('applications-change', weeklyData.changes.applications);
+            updateChangeIndicator('spend-change', weeklyData.changes.spend);
+            
+            // Update weekly summary
+            document.getElementById('top-campaign').textContent = weeklyData.this_week.top_campaign || 'None';
+            
+            const costPerEnquiry = weeklyData.this_week.enquiries > 0
+                ? (weeklyData.this_week.spend / weeklyData.this_week.enquiries).toFixed(2)
+                : 0;
+            document.getElementById('cost-per-enquiry').textContent = '£' + costPerEnquiry;
+        }
+        
+        // Load upload history for last upload time
+        const historyResponse = await fetch('/api/upload-history');
+        const historyData = await historyResponse.json();
+        
+        if (historyData.success && historyData.data.length > 0) {
+            const lastUpload = new Date(historyData.data[0].uploaded_at);
+            document.getElementById('last-upload').textContent = lastUpload.toLocaleDateString();
+            
+            const totalRecords = historyData.data.reduce((sum, item) => sum + item.records, 0);
+            document.getElementById('total-records').textContent = totalRecords.toLocaleString();
+        }
+        
+    } catch (error) {
+        console.error('Error loading dashboard data:', error);
+    }
+}
+
+// Update change indicator with arrow
+function updateChangeIndicator(elementId, changeValue) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    
+    const arrow = changeValue >= 0 ? '↑' : '↓';
+    const className = changeValue >= 0 ? 'positive' : 'negative';
+    
+    element.textContent = `${arrow} ${Math.abs(changeValue).toFixed(1)}%`;
+    element.className = `metric-change ${className}`;
+}
+
+// Load and render charts
+async function loadCharts() {
+    try {
+        // Fetch chart data
+        const response = await fetch('/api/reports/dashboard-charts');
+        const data = await response.json();
+        
+        if (data.success) {
+            renderWeeklyTrendsChart(data.weekly_trends);
+            renderProductPerformanceChart(data.product_performance);
+        }
+        
+        // Fetch product mix data
+        const mixResponse = await fetch('/api/reports/product-mix');
+        const mixData = await mixResponse.json();
+        
+        if (mixData.success) {
+            renderProductMixChart(mixData.product_mix);
+        }
+        
+    } catch (error) {
+        console.error('Error loading charts:', error);
+    }
+}
+
+// Render weekly trends chart
+function renderWeeklyTrendsChart(data) {
+    const ctx = document.getElementById('weeklyTrendsChart').getContext('2d');
+    
+    if (weeklyTrendsChart) {
+        weeklyTrendsChart.destroy();
+    }
+    
+    weeklyTrendsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.map(d => d.date),
+            datasets: [{
+                label: 'Enquiries',
+                data: data.map(d => d.enquiries),
+                borderColor: '#3BF7CA',
+                backgroundColor: 'rgba(59, 247, 202, 0.1)',
+                tension: 0.4
+            }, {
+                label: 'Applications',
+                data: data.map(d => d.applications),
+                borderColor: '#18124C',
+                backgroundColor: 'rgba(24, 18, 76, 0.1)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// Render product performance chart
+function renderProductPerformanceChart(data) {
+    const ctx = document.getElementById('productPerformanceChart').getContext('2d');
+    
+    if (productPerformanceChart) {
+        productPerformanceChart.destroy();
+    }
+    
+    // Take top 8 products
+    const topProducts = data.slice(0, 8);
+    
+    productPerformanceChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: topProducts.map(d => d.name),
+            datasets: [{
+                label: 'Enquiries',
+                data: topProducts.map(d => d.enquiries),
+                backgroundColor: '#3BF7CA'
+            }, {
+                label: 'Approved',
+                data: topProducts.map(d => d.approved),
+                backgroundColor: '#18124C'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        autoSkip: false,
+                        maxRotation: 45,
+                        minRotation: 45
+                    }
+                },
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// Render product mix donut chart
+function renderProductMixChart(data) {
+    const ctx = document.getElementById('productMixChart').getContext('2d');
+    
+    if (productMixChart) {
+        productMixChart.destroy();
+    }
+    
+    // Take top 5 categories and group rest as "Other"
+    const topCategories = data.slice(0, 5);
+    const otherCount = data.slice(5).reduce((sum, item) => sum + item.count, 0);
+    
+    if (otherCount > 0) {
+        topCategories.push({
+            category: 'Other',
+            count: otherCount,
+            percentage: (otherCount / data.reduce((sum, item) => sum + item.count, 0) * 100).toFixed(1)
+        });
+    }
+    
+    productMixChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: topCategories.map(d => `${d.category} (${d.percentage}%)`),
+            datasets: [{
+                data: topCategories.map(d => d.count),
+                backgroundColor: [
+                    '#18124C',
+                    '#3BF7CA',
+                    '#E97132',
+                    '#A02B93',
+                    '#F7CA3B',
+                    '#666666'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        padding: 15,
+                        font: {
+                            size: 12
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Load recent activity
+async function loadRecentActivity() {
+    try {
+        const response = await fetch('/api/upload-history');
+        const data = await response.json();
+        
+        if (data.success) {
+            const activityList = document.getElementById('activity-list');
+            
+            if (data.data.length === 0) {
+                activityList.innerHTML = '<p>No recent uploads</p>';
+                return;
+            }
+            
+            const activityHtml = data.data.slice(0, 5).map(item => {
+                const date = new Date(item.uploaded_at);
+                const typeLabel = item.type.replace('_', ' ').charAt(0).toUpperCase() + item.type.slice(1);
+                
+                return `
+                    <div class="activity-item">
+                        <div>
+                            <strong>${typeLabel}</strong>
+                            <br>
+                            <small>${item.records} records processed</small>
+                        </div>
+                        <div>
+                            <small>${date.toLocaleDateString()} ${date.toLocaleTimeString()}</small>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            activityList.innerHTML = activityHtml;
+        }
+    } catch (error) {
+        console.error('Error loading activity:', error);
+    }
+}
+
+// Refresh charts
+function refreshCharts() {
+    loadCharts();
+    loadDashboardData();
+}
+
+// Auto-refresh every 5 minutes
+setInterval(refreshCharts, 5 * 60 * 1000);
+</script>
+{% endblock %}
