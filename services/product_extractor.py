@@ -9,13 +9,14 @@ from typing import Dict, List, Tuple, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class ProductExtractor:
     """
     Service to extract product names and prices from descriptions
     Replicates the VBA macro 'Populate_product_types_and_prices()'
     """
     
-    # Product patterns matching Excel logic
+    # Product patterns matching Excel logic   fbfb
     PRODUCT_PATTERNS = {
         'Sofa - Aldis': [
             r'\baldis\b',
